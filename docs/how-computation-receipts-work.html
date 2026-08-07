@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 Anomly, Inc. Author: Ry Bruscoe. Licensed per LICENSES.md (Apache-2.0 code / CC-BY-4.0 docs). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How Computation Receipts Work</title>
+<style>
+  @page {
+    size: letter;
+    margin: 22mm 20mm 20mm 20mm;
+    @bottom-left  { content: "\00a9 2026 Anomly, Inc. All rights reserved."; font: 8pt 'Helvetica', sans-serif; color: #8a8f98; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages);    font: 8pt 'Helvetica', sans-serif; color: #8a8f98; }
+  }
+  body { font: 10.5pt/1.55 'Georgia', 'Times New Roman', serif; color: #1d2129; margin: 0; }
+  header { border-bottom: 3px solid #0f3b66; padding-bottom: 10pt; margin-bottom: 16pt; }
+  .brand { font: bold 9pt 'Helvetica', sans-serif; letter-spacing: 3px; color: #0f3b66; text-transform: uppercase; }
+  h1 { font: bold 21pt 'Helvetica', sans-serif; color: #10151c; margin: 5pt 0 3pt; }
+  .subtitle { font: italic 11pt 'Georgia', serif; color: #4a5260; margin: 0; }
+  .meta { font: 8.5pt 'Helvetica', sans-serif; color: #8a8f98; margin-top: 6pt; }
+  h2 { font: bold 13pt 'Helvetica', sans-serif; color: #0f3b66; margin: 16pt 0 5pt; page-break-after: avoid; }
+  h2 .num { color: #b0b7c3; margin-right: 6pt; }
+  p { margin: 0 0 7pt; text-align: justify; }
+  strong { color: #10151c; }
+  ul { margin: 2pt 0 8pt; padding-left: 16pt; }
+  li { margin-bottom: 3.5pt; text-align: justify; }
+  .keybox {
+    background: #f2f6fa; border-left: 4px solid #0f3b66; padding: 8pt 12pt;
+    margin: 10pt 0; font-size: 10.5pt; page-break-inside: avoid;
+  }
+  .keybox p { margin: 0; }
+  .flow {
+    font: 9pt 'Courier New', monospace; background: #10151c; color: #d8dee9;
+    padding: 10pt 14pt; border-radius: 4px; margin: 10pt 0; page-break-inside: avoid;
+    line-height: 1.6; white-space: pre;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0 12pt; font-size: 9.5pt; page-break-inside: avoid; }
+  th { font: bold 9pt 'Helvetica', sans-serif; text-align: left; color: #fff; background: #0f3b66; padding: 5pt 8pt; }
+  td { padding: 4.5pt 8pt; border-bottom: 0.5pt solid #d4d9e0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7f9fb; }
+  .verdict { font: bold 9pt 'Helvetica', sans-serif; }
+  .accept { color: #1a7a3a; } .reject { color: #b02a1e; }
+  .scope { font-size: 9.5pt; color: #4a5260; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Anomly, Inc.</div>
+  <h1>How Computation Receipts Work</h1>
+  <p class="subtitle">Verifiable numeric computation without trusted hardware — correctness as a property of the arithmetic, not the machine</p>
+  <p class="meta">Technical overview &middot; August 2026 &middot; CR specification v0.1 (with v0.1.1 sampled and v0.1.2 chained receipts)</p>
+</header>
+
+<h2><span class="num">1</span>The foundation: exact arithmetic</h2>
+<p>Ordinary floating-point math rounds after every addition, so <em>(a+b)+c &ne; a+(b+c)</em>. Every GPU, every parallelization strategy, and every math library sums in a different order — so the &ldquo;same&rdquo; computation produces different bits on different machines, and <em>&ldquo;is this result correct?&rdquo;</em> has no checkable answer. Reproducibility today means pinning one machine, one library, one execution order — and trusting whoever ran it.</p>
+<p>Anomly computes with b-posit — a bounded profile of posit arithmetic (Gustafson &amp; Yonemoto, 2017; Posit Standard 2022) — accumulating into a <strong>256-bit quire</strong>: an accumulator wide enough to hold every intermediate sum <em>exactly</em>, with no rounding until the final readout. The mathematics is published, decades-deep, and vendor-neutral by construction; what Anomly adds is the verification layer built on it. With no rounding inside the sum, accumulation order cannot matter — so <strong>every honest execution produces identical bits: any hardware, any implementation, any parallelism</strong>. This identity has been demonstrated between an FPGA accelerator card, x86 CPUs, and three independently written software implementations, all producing the same certificate for the same computation.</p>
+<div class="keybox"><p><strong>The core inversion:</strong> correctness becomes a property of the <em>computation</em>, not of the machine that ran it. Two implementations agree because exact accumulation is order-independent by construction — so a mismatch means a <em>different computation was run</em>, never merely different hardware.</p></div>
+
+<h2><span class="num">2</span>The receipt: a commitment to what was computed</h2>
+<p>The prover emits a <strong>manifest</strong> — a canonical JSON document that binds, by SHA-256 digest:</p>
+<ul>
+  <li>the <strong>arithmetic profile</strong> (b-posit16, es=3, 256-bit quire — pinned to a published registry so exact arithmetic can never be silently swapped for rounded math);</li>
+  <li>the <strong>computation graph</strong> — which operations, wired how;</li>
+  <li>the <strong>inputs</strong>, the <strong>model weights</strong>, and the <strong>output</strong>.</li>
+</ul>
+<p>The <strong>certificate</strong> is the hash of that canonical manifest: one string committing to everything that determines the result. Machine details — which card, which kernel, which driver — are recorded alongside but deliberately <em>not</em> certified. They are provenance for humans, never evidence, because the machine&rsquo;s identity is exactly what the system makes irrelevant.</p>
+
+<h2><span class="num">3</span>Verification: re-execute and compare</h2>
+<p>The verifier recomputes the same computation on <strong>their own hardware</strong>, builds their own receipt, and compares certificates. Verification requires no trust in any vendor, enclave, or signature authority — only arithmetic.</p>
+<table>
+  <tr><th>Verdict</th><th>Meaning</th></tr>
+  <tr><td class="verdict accept">ACCEPT</td><td>Certificates identical — the result is the unique correct answer to the committed computation.</td></tr>
+  <tr><td class="verdict reject">REJECT</td><td>Any flipped output bit, substituted weight, or altered input produces a different digest and is caught.</td></tr>
+  <tr><td class="verdict">MALFORMED</td><td>The receipt is internally inconsistent — e.g. it claims order-independence under a rounded arithmetic profile.</td></tr>
+  <tr><td class="verdict">UNVERIFIABLE</td><td>The verifier cannot assess the claim (unknown profile, order-dependent arithmetic) and refuses to accept it.</td></tr>
+</table>
+<p>The published conformance vectors include <strong>negative vectors</strong> — receipts a conforming verifier <em>must refuse</em>, with the required refusal. Positive vectors alone cannot establish soundness: a verifier that accepted everything would reproduce every positive digest and still be worthless.</p>
+
+<h2><span class="num">4</span>Scaling: sampled receipts and receipt chains</h2>
+<p><strong>Sampled receipts (v0.1.1).</strong> For large outputs, the verifier re-executes only <em>s</em> of <em>n</em> output rows. The sampled indices are not chosen by the prover: they derive from <code>sha256(manifest&nbsp;&#8214;&nbsp;challenge)</code>, so the prover commits to <em>every</em> row before learning which rows will be audited.</p>
+<p><strong>Receipt chains (v0.1.2).</strong> Streaming or layered computations emit a chain: each receipt carries its predecessor&rsquo;s certificate, and a closing receipt binds the chunk count and the digest of every link. Dropping, reordering, or truncating any chunk is refused. This is how a full model forward is attested: real Llama&#8209;3.2&#8209;1B weights at full width (d=2048, d_ff=8192), one receipt per layer, sixteen layers, closed — and tampering with any single layer is caught even when the cheater consistently rebuilds the entire remainder of the chain, closing receipt included.</p>
+
+<h2><span class="num">5</span>The challenge protocol: beating an adaptive cheater</h2>
+<p>A cheating prover could <em>grind</em> a sampled receipt — recompute a tampered output repeatedly until the tampered rows happen to fall outside the audited sample. The defence is temporal: the challenge must not exist until after the prover has committed.</p>
+<div class="flow">1. COMMIT   prover runs the computation, emits a FULL receipt
+            (the output digest is now fixed)
+2. CHALLENGE  a value neither party chose arrives:
+            the published randomness of a drand beacon round
+            pinned STRICTLY AFTER the commitment
+3. REVEAL   prover emits the sampled receipt under that challenge
+            (sample indices now derive from public randomness)
+4. VERIFY   verifier re-derives the indices itself and re-executes
+            them on hardware the prover does not control</div>
+<p>A cheater must now either predict future public randomness or produce a tampered output whose unpredictably-chosen sample still reproduces bit-exactly on an independent implementation. Because the beacon round is public and permanent, <strong>any third party can re-fetch it years later and audit the entire transcript</strong> — the verifier&rsquo;s honesty is no longer assumed, it is checkable. This protocol has been run end-to-end against physical FPGA silicon: the card committed, a separate machine issued the challenge, and the nonce-derived sample re-executed bit-exactly on a CPU — a different architecture and a different implementation of the same arithmetic.</p>
+
+<h2><span class="num">6</span>Scope: what a receipt deliberately does not claim</h2>
+<p class="scope">Computation Receipts attest <strong>result integrity</strong> and nothing else. They do not provide confidentiality — the verifier must hold the operands to re-execute them, so secret inputs or weights are out of scope (that is the domain of confidential-computing and zero-knowledge approaches, which solve a different problem and can be composed with receipts). They do not attest machine identity — by design. And they do not attest wall-clock timing: a chain proves order of commitment, not when the work was done. Stating these boundaries precisely is what makes the ACCEPT verdict mean something.</p>
+
+<h2><span class="num">7</span>Demonstrated today</h2>
+<ul>
+  <li><strong>Specification and conformance:</strong> CR v0.1/.1.1/.1.2 with 12 published vectors, including three refusals; a falsifiable cross-implementation gate (two independent implementations, byte-identical output, 6/6).</li>
+  <li><strong>On silicon:</strong> receipts minted by a physical Xilinx U200 625-PE exact-quire GEMM array, verified bit-exactly against independent x86 re-execution — identical certificates across architectures.</li>
+  <li><strong>The challenge protocol on real hardware:</strong> commit on the card, nonce from a second machine, nonce-derived rows re-executed on the CPU quire — adaptive-prover evidence, not just fault evidence.</li>
+  <li><strong>Public-randomness challenges:</strong> drand beacon rounds pinned after commitment, with a transcript any third party can audit against the live beacon.</li>
+  <li><strong>Model scale:</strong> a real pretrained LLM&rsquo;s per-layer forward attested as a closed receipt chain at full width, with consistent-liar, truncation, and reorder attacks all refused.</li>
+  <li><strong>Continuously gated:</strong> every claim above is enforced by an automated validation suite (33/33 gates at this writing) that re-verifies the committed artifacts on every run.</li>
+</ul>
+
+<div class="keybox"><p><strong>In one sentence:</strong> for the integrity of a numeric result, a Computation Receipt replaces a trust root you have to believe with one you can check — re-execution of exact arithmetic, on any machine, by anyone, forever.</p></div>
+
+</body>
+</html>
