@@ -234,6 +234,17 @@ static void cr_digest_named(const char *const *names, const char *const *digests
  *   arithmetic < computation < cr < digest_alg < input < model < output
  * and within arithmetic: accumulation < order_independent < params < profile;
  * within params: es < frac_bits < n < quire_bits.
+ *
+ * ESCAPING BOUNDARY (verified 2026-08-08, C<->Python differential): the FREE-TEXT string
+ * parameters — computation_id, computation_version (here) and tensor names / host_note
+ * (elsewhere) — are JSON-escaped via cr__json_escape, because a caller legitimately chooses
+ * them and they can contain any character. The remaining %s parameters (input_digest,
+ * output_digest, sample_digest, prev_certificate, challenge_hex, chain certs) are
+ * FORMAT-CONSTRAINED to `sha256:<hex>` or hex by this emitter's contract: they are hash
+ * outputs / prior certificates / beacon randomness, never free text. Valid hex contains no
+ * escapable character, so escaping them would be a no-op; a special character in one is
+ * caller misuse that yields a certificate which will not verify against a correct
+ * re-execution — safe by consequence (same principle as cr__wrote), not a reachable defect.
  */
 static void cr_build_manifest(char *buf, size_t buflen,
                               const char *computation_id,
