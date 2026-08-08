@@ -147,6 +147,51 @@ static size_t cr__wrote(int n, size_t cap) {
     return (size_t)n < cap ? (size_t)n : (cap ? cap - 1 : 0);
 }
 
+#define CR_JSON_ESC_MAX 1024
+
+/* JSON-escape a caller string into `out` (NUL-terminated), matching the CR canonical form
+ * (spec §2) and Python's json.dumps(ensure_ascii=False): escape " and \, the short controls
+ * \b \t \n \f \r, any other control byte (< 0x20) as \u00xx (lowercase hex); every other
+ * byte — INCLUDING non-ASCII >= 0x80 — is copied literally (spec §2 rule 5, so a UTF-8
+ * "café" hashes identically on both sides).
+ * CONFORMANCE (found 2026-08-08, C<->Python emitter differential on special characters):
+ * the manifest builders previously interpolated computation id / version and tensor names
+ * with a raw %s, so a name containing a quote, backslash or control character produced bytes
+ * that were not valid JSON and did NOT match the Python reference — silently breaking the
+ * cross-implementation byte-identity the whole format rests on (an honest on-card prover
+ * would emit a certificate the verifier could not reproduce). This restores it. If the
+ * escaped result would exceed `cap` it stops on an escape boundary (never a partial escape),
+ * yielding a certificate that will not verify — caller misuse, never an out-of-bounds write. */
+static void cr__json_escape(const char *in, char *out, size_t cap) {
+    static const char hexd[] = "0123456789abcdef";
+    size_t o = 0;
+    if (cap == 0) return;
+    for (const unsigned char *p = (const unsigned char *)in; *p; p++) {
+        unsigned char c = *p;
+        char esc[6];
+        size_t elen;
+        switch (c) {
+            case '"':  esc[0] = '\\'; esc[1] = '"';  elen = 2; break;
+            case '\\': esc[0] = '\\'; esc[1] = '\\'; elen = 2; break;
+            case '\b': esc[0] = '\\'; esc[1] = 'b';  elen = 2; break;
+            case '\t': esc[0] = '\\'; esc[1] = 't';  elen = 2; break;
+            case '\n': esc[0] = '\\'; esc[1] = 'n';  elen = 2; break;
+            case '\f': esc[0] = '\\'; esc[1] = 'f';  elen = 2; break;
+            case '\r': esc[0] = '\\'; esc[1] = 'r';  elen = 2; break;
+            default:
+                if (c < 0x20) {
+                    esc[0] = '\\'; esc[1] = 'u'; esc[2] = '0'; esc[3] = '0';
+                    esc[4] = hexd[c >> 4]; esc[5] = hexd[c & 15]; elen = 6;
+                } else {
+                    esc[0] = (char)c; elen = 1;
+                }
+        }
+        if (o + elen >= cap) break;   /* leave room for the NUL; stop on an escape boundary */
+        for (size_t k = 0; k < elen; k++) out[o++] = esc[k];
+    }
+    out[o] = 0;
+}
+
 static void cr_digest_tensor(const char *dtype, const int *shape, int ndim,
                              const void *data, size_t nbytes, char out[72])
 {
@@ -171,10 +216,12 @@ static void cr_digest_named(const char *const *names, const char *const *digests
 {
     sha256_t s; sha256_init(&s);
     for (int i = 0; i < count; i++) {
+        char name_e[CR_JSON_ESC_MAX];
+        cr__json_escape(names[i], name_e, sizeof name_e);
         cr__sha_str(&s, "{\"digest\":\"");
-        cr__sha_str(&s, digests[i]);
+        cr__sha_str(&s, digests[i]);         /* a sha256:<hex> digest — no escaping needed */
         cr__sha_str(&s, "\",\"name\":\"");
-        cr__sha_str(&s, names[i]);
+        cr__sha_str(&s, name_e);
         cr__sha_str(&s, "\"}");
     }
     char hex[65]; sha256_hex(&s, hex);
@@ -195,6 +242,9 @@ static void cr_build_manifest(char *buf, size_t buflen,
                               const char *output_digest, int output_len,
                               char certificate[72])
 {
+    char id_e[CR_JSON_ESC_MAX], ver_e[CR_JSON_ESC_MAX];
+    cr__json_escape(computation_id, id_e, sizeof id_e);
+    cr__json_escape(computation_version, ver_e, sizeof ver_e);
     int n = snprintf(buf, buflen,
         "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,"
         "\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},"
@@ -204,7 +254,7 @@ static void cr_build_manifest(char *buf, size_t buflen,
         "\"input\":{\"digest\":\"%s\",\"n_tensors\":%d},"
         "\"model\":{\"digest\":\"" CR_EMPTY_COLLECTION_DIGEST "\",\"n_tensors\":0},"
         "\"output\":{\"digest\":\"%s\",\"shape\":[%d]}}",
-        computation_id, computation_version, input_digest, n_inputs,
+        id_e, ver_e, input_digest, n_inputs,
         output_digest, output_len);
 
     sha256_t s; sha256_init(&s);
@@ -307,6 +357,9 @@ static void cr_build_sampled_manifest(char *buf, size_t buflen,
                                       const char *sample_digest,
                                       char certificate[72])
 {
+    char id_e[CR_JSON_ESC_MAX], ver_e[CR_JSON_ESC_MAX];
+    cr__json_escape(computation_id, id_e, sizeof id_e);
+    cr__json_escape(computation_version, ver_e, sizeof ver_e);
     int n = snprintf(buf, buflen,
         "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,"
         "\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},"
@@ -318,7 +371,7 @@ static void cr_build_sampled_manifest(char *buf, size_t buflen,
         "\"output\":{\"digest\":\"%s\",\"shape\":[%d]},"
         "\"sample\":{\"challenge\":\"%s\",\"digest\":\"%s\",\"n_units\":%d,"
         "\"rule\":\"sha256-ctr-reject-v1\",\"size\":%d}}",
-        computation_id, computation_version, input_digest, n_inputs,
+        id_e, ver_e, input_digest, n_inputs,
         output_digest, output_len, challenge_hex, sample_digest, n_units, size);
 
     sha256_t s; sha256_init(&s);
@@ -336,6 +389,9 @@ static void cr_sample_seed(const char *computation_id, const char *computation_v
                            uint8_t seed[32])
 {
     char base[1024];
+    char id_e[CR_JSON_ESC_MAX], ver_e[CR_JSON_ESC_MAX];
+    cr__json_escape(computation_id, id_e, sizeof id_e);
+    cr__json_escape(computation_version, ver_e, sizeof ver_e);
     int n = snprintf(base, sizeof base,
         "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,"
         "\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},"
@@ -345,7 +401,7 @@ static void cr_sample_seed(const char *computation_id, const char *computation_v
         "\"input\":{\"digest\":\"%s\",\"n_tensors\":%d},"
         "\"model\":{\"digest\":\"" CR_EMPTY_COLLECTION_DIGEST "\",\"n_tensors\":0},"
         "\"output\":{\"digest\":\"%s\",\"shape\":[%d]}}",
-        computation_id, computation_version, input_digest, n_inputs,
+        id_e, ver_e, input_digest, n_inputs,
         output_digest, output_len);
 
     size_t bn = cr__wrote(n, sizeof base);          /* never the would-be length */
@@ -374,6 +430,9 @@ static void cr_build_chunk_manifest(char *buf, size_t buflen,
                                     int chunk_index, const char *prev_certificate,
                                     char certificate[72])
 {
+    char id_e[CR_JSON_ESC_MAX], ver_e[CR_JSON_ESC_MAX];
+    cr__json_escape(computation_id, id_e, sizeof id_e);
+    cr__json_escape(computation_version, ver_e, sizeof ver_e);
     int n = snprintf(buf, buflen,
         "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,"
         "\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},"
@@ -384,7 +443,7 @@ static void cr_build_chunk_manifest(char *buf, size_t buflen,
         "\"input\":{\"digest\":\"%s\",\"n_tensors\":%d},"
         "\"model\":{\"digest\":\"" CR_EMPTY_COLLECTION_DIGEST "\",\"n_tensors\":0},"
         "\"output\":{\"digest\":\"%s\",\"shape\":[%d]}}",
-        chunk_index, prev_certificate, computation_id, computation_version,
+        chunk_index, prev_certificate, id_e, ver_e,
         input_digest, n_inputs, output_digest, output_len);
 
     sha256_t s; sha256_init(&s);
