@@ -825,6 +825,24 @@ def build_closing_receipt(
     return Receipt(manifest, certificate_of(manifest), dict(meta or {}))
 
 
+def _is_closing_receipt(r: Receipt) -> bool:
+    """True only for a structurally-plausible closing receipt.
+
+    ROBUSTNESS (found 2026-08-08, chain-verify fuzz): verify_chain must peek at the last
+    receipt to decide whether it is a closing terminator BEFORE it can run check_wellformed
+    on the body — and a hostile receipt's `manifest` or `chunk` may be any JSON value, not a
+    dict. Calling `.get()` on a non-dict raised AttributeError (reachable straight through
+    from_json, which only guarantees manifest is a dict), crashing the verifier instead of
+    returning MALFORMED. Answer False for anything that is not a dict-shaped closing chunk;
+    the per-chunk check_wellformed below then produces the proper MALFORMED verdict.
+    """
+    m = getattr(r, "manifest", None)
+    if not isinstance(m, dict):
+        return False
+    c = m.get("chunk")
+    return isinstance(c, dict) and c.get("closing") is True
+
+
 def verify_chain(claimed: Sequence[Receipt], recomputed: Sequence[Receipt] | None,
                  *, allow_open: bool = False) -> Verdict:
     """Verify a receipt chain against the verifier's own re-executed chain.
@@ -838,7 +856,7 @@ def verify_chain(claimed: Sequence[Receipt], recomputed: Sequence[Receipt] | Non
         return Verdict(MALFORMED, "empty chain")
     body = list(claimed)
     closing = None
-    if body[-1].manifest.get("chunk", {}).get("closing"):
+    if _is_closing_receipt(body[-1]):
         closing = body[-1]
         body = body[:-1]
     if not body:
@@ -848,7 +866,10 @@ def verify_chain(claimed: Sequence[Receipt], recomputed: Sequence[Receipt] | Non
         if not wf:
             return Verdict(MALFORMED, f"chunk {k}: {wf.reason}")
         c = r.manifest.get("chunk")
-        if c is None or c.get("closing"):
+        # `c` may be a non-dict here for a valid non-chunk receipt (e.g. a 0.1.1 sampled
+        # receipt that carries a rogue `chunk` field check_wellformed does not police);
+        # isinstance guards the .get so a smuggled non-dict chunk yields MALFORMED, not a raise.
+        if not isinstance(c, dict) or c.get("closing"):
             return Verdict(MALFORMED, f"chunk {k}: not a chunk receipt")
         if c["index"] != k:
             return Verdict(REJECT, f"chunk order broken: position {k} carries index {c['index']}")
