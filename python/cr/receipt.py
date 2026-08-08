@@ -127,6 +127,18 @@ def canonical_bytes(obj: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _reject_nonfinite(constant: str) -> float:
+    """Reject a non-finite JSON constant at the parse boundary.
+
+    SOUNDNESS/ROBUSTNESS (found 2026-08-08, canonicalisation fuzz): `json.loads` parses
+    `NaN`/`Infinity`/`-Infinity` by DEFAULT, but a CR receipt is strict JSON and
+    `canonical_bytes` uses `allow_nan=False`. A manifest carrying a non-finite value would
+    therefore crash certificate recomputation (`certificate_of` → `canonical_bytes` →
+    ValueError) instead of getting a verdict. Reject it where the untrusted text enters.
+    """
+    raise ValueError(f"non-finite JSON constant {constant!r} is not allowed in a receipt")
+
+
 def _hash(alg: str):
     try:
         return _HASHES[alg]()
@@ -217,7 +229,7 @@ class Receipt:
     @staticmethod
     def from_json(text: str) -> Receipt:
         try:
-            obj = json.loads(text)
+            obj = json.loads(text, parse_constant=_reject_nonfinite)
         # ROBUSTNESS (found 2026-08-08, from_json fuzz): json.loads raises more than
         # JSONDecodeError on a hostile document — RecursionError on deeply-nested JSON,
         # and ValueError on an over-long integer literal (Python's int-string limit). A
@@ -560,7 +572,16 @@ def check_wellformed(r: Receipt) -> Verdict:
                            f"sample.n_units {n!r} does not match output leading dimension "
                            f"{(oshape[0] if isinstance(oshape, list) and oshape else None)!r} "
                            "(a shrunken sampling space would leave units unattested)")
-    if certificate_of(m) != r.certificate:
+    # certificate_of canonicalises the manifest; a Receipt built directly (not via from_json)
+    # can still hold a non-finite float or an otherwise non-serialisable value, which makes
+    # canonical_bytes raise ValueError/TypeError. That must be a MALFORMED verdict, not a
+    # crash — check_wellformed's whole contract is "answer, never raise" on a hostile receipt.
+    try:
+        recomputed = certificate_of(m)
+    except (ValueError, TypeError) as e:
+        return Verdict(MALFORMED, f"manifest is not canonicalisable (non-finite float or "
+                                  f"unserialisable value): {e}")
+    if recomputed != r.certificate:
         return Verdict(MALFORMED, "certificate does not match manifest (tampered or miscomputed)")
     return Verdict(ACCEPT, "well-formed")
 
