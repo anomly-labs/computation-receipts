@@ -18,8 +18,10 @@ adversarial testing campaign (2026-08-08):
 - two LLM code reviews (function-level + spec-vs-code conformance), every finding
   weaponized against the real code
 - sound-objective **evolutionary** attack search against the certificate binding
+- a hostile-input fuzzer over `Receipt.from_json` (the untrusted entry point) and an
+  exotic-numpy-dtype fuzzer over the tensor-digest layer (collision / reproducibility)
 
-**Six real defects were found and fixed** in the process (two would have been release
+**Nine real defects were found and fixed** in the process (two would have been release
 blockers). No forgery of the certificate binding has been found. All shipped self-checks
 currently pass — run them yourself:
 

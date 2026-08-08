@@ -165,6 +165,19 @@ def digest_tensor(a: np.ndarray, alg: str = "sha256") -> str:
     the entire premise — silently breaks.
     """
     arr = np.ascontiguousarray(a)
+    # SOUNDNESS (found 2026-08-08, exotic-dtype fuzz): the digest binds dtype as the numpy
+    # type string, which is lossy for the object ('O') and void/structured ('V') kinds.
+    # Every structured dtype of a given itemsize stringifies to the same "V<n>", so two
+    # logically distinct structured tensors with identical raw bytes share a digest — a
+    # binding collision. Object arrays are worse: their bytes are process-local pointers, so
+    # such a receipt could never re-verify (and no error would say why). A CR tensor is a
+    # numeric array; every other kind (biufcMmSU) is byte-reproducible and fully determined
+    # by its dtype string. Refuse O/V with a clean error rather than emit an unsound digest.
+    if arr.dtype.kind in "OV":
+        raise ReceiptError(
+            f"cannot digest tensor of dtype {arr.dtype!r}: object and structured arrays "
+            "have no reproducible, collision-free byte encoding"
+        )
     le = arr.astype(arr.dtype.newbyteorder("<"), copy=False)
     h = _hash(alg)
     h.update(canonical_bytes({"dtype": np.dtype(arr.dtype).str.lstrip("<>|="),
@@ -509,8 +522,16 @@ def check_wellformed(r: Receipt) -> Verdict:
         n, size = s.get("n_units"), s.get("size")
         if not (isinstance(n, int) and isinstance(size, int) and 1 <= size <= n):
             return Verdict(MALFORMED, f"sample size/n_units invalid: {size!r}/{n!r}")
-        if not isinstance(s.get("challenge"), str) or not isinstance(s.get("digest"), str):
+        ch = s.get("challenge")
+        if not isinstance(ch, str) or not isinstance(s.get("digest"), str):
             return Verdict(MALFORMED, "sample section missing challenge or digest")
+        # ROBUSTNESS (found 2026-08-08, sampled-verify fuzz): the challenge must be valid
+        # hex. sample_indices_of feeds it to bytes.fromhex(), which raises ValueError on
+        # non-hex or odd-length input — so a receipt that passes every other structural
+        # check would crash the verifier here instead of getting a MALFORMED verdict. The
+        # emitter always writes canonical even-length hex; require it (empty is allowed).
+        if len(ch) % 2 or any(c not in "0123456789abcdefABCDEF" for c in ch):
+            return Verdict(MALFORMED, f"sample.challenge is not valid hex: {ch!r}")
         # SOUNDNESS (found 2026-08-04): n_units MUST equal the output's leading
         # dimension. Without this a prover can declare a sampling space smaller
         # than the real output — the verifier then draws indices only from that
