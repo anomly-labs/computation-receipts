@@ -82,6 +82,22 @@ spec wins and the disagreement is a bug: please report it.
   manifest + challenge; never read indices from anything the prover sent. Same for
   the chain: position, linkage, and the closing digest are recomputed, not trusted.
 
+## A worked second-language example
+
+`examples/js/cr_canonical.mjs` is a from-scratch **JavaScript** implementation of the
+canonicalisation layer (§2 canonical form + §3 tensor / collection digests), written from
+the spec text with Node's standard library only — no CR code, no reading of the reference.
+It emits the eight canonicalisation-layer vectors and passes the runner **8/8**:
+
+```bash
+node examples/js/cr_canonical.mjs | python3 python/conformance_runner.py /dev/stdin
+```
+
+It exists to prove the point of §9 concretely — that the pinned rules are enough for a
+second implementation in a *different language* to reproduce the vectors, escaping, int8
+dtype and code-point sort included — and to give you a ~120-line worked reference to read
+alongside the spec.
+
 ## Self-certify with the conformance runner
 
 You do not have to eyeball diffs. Emit your conformance vectors in the published schema
