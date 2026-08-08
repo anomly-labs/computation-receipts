@@ -95,8 +95,16 @@ node examples/js/cr_canonical.mjs | python3 python/conformance_runner.py /dev/st
 
 It exists to prove the point of §9 concretely — that the pinned rules are enough for a
 second implementation in a *different language* to reproduce the vectors, escaping, int8
-dtype and code-point sort included — and to give you a ~120-line worked reference to read
+dtype and code-point sort included — and to give you a short worked reference to read
 alongside the spec.
+
+`examples/js/cr.mjs` goes further: a from-scratch JavaScript **emitter** for the whole
+receipt layer — manifest + certificate (§4–§5), the sampled-index PRF (§10, hex-decoded
+challenge and all), and the chain digest (§12). It reproduces **12 of the 17 vectors** —
+every canonicalisation and every positive receipt / sampled / chain vector — using only
+canonicalisation + sha256 + the PRF, no b-posit arithmetic (a receipt's *values* need the
+number system; its *bytes* do not). The remaining five are `refuse/*`, which assert a
+verdict a *verifier* must return — the verifier half, left as the well-specified next step.
 
 ## Self-certify with the conformance runner
 
