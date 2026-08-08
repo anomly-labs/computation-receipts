@@ -19,13 +19,23 @@ and an independently written C emitter.
 
 ```bash
 cd python
-python3 run_checks.py            # ← runs everything below and prints one PASS/FAIL each
+python3 run_checks.py            # ← runs all five checks below, one PASS/FAIL line each
 
 # or run them individually:
-python3 check_conformance.py     # implementation vs published vectors, refusals included
+python3 check_conformance.py     # implementation vs the 17 published vectors, refusals included
 python3 -m cr.protocol           # the §10 challenge-protocol logic, arithmetic-free
-python3 cr_verify_service.py     # local web verifier: paste a receipt, get a verdict
-python3 test_verify_service.py   # the service's own gate (honest ACCEPT, tamper REJECT)
+python3 test_verify_service.py   # the local verifier service's own gate (honest ACCEPT, tamper REJECT)
+python3 conformance_runner.py --demo   # the third-party self-cert runner, grading the reference
+
+# the local web verifier (paste a receipt, get a verdict) — serves until Ctrl-C:
+python3 cr_verify_service.py
+```
+
+A from-scratch **JavaScript** implementation of the canonicalisation layer proves the format is
+implementable without this repository (spec §9) — graded by the same runner a third party uses:
+
+```bash
+node examples/js/cr_canonical.mjs | python3 python/conformance_runner.py /dev/stdin --require canonicalisation
 ```
 
 Requires Python 3.10+ and numpy. No other dependencies, no account, no hardware.

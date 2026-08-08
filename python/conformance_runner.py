@@ -87,6 +87,15 @@ def grade(reference: list, candidate: list) -> tuple[int, int, list]:
 def main(argv: list) -> int:
     reference = json.loads(REFERENCE.read_text(encoding="utf-8"))
 
+    # --require <layer>: pass (exit 0) if every vector in that layer is reproduced, ignoring
+    # the others. A canonicalisation-only implementation is conforming for that layer (§9's
+    # first step needs no arithmetic), so `--require canonicalisation` gives it a clean check.
+    require = None
+    if "--require" in argv:
+        i = argv.index("--require")
+        require = argv[i + 1] if i + 1 < len(argv) else ""
+        argv = argv[:i] + argv[i + 2:]
+
     if argv and argv[0] == "--emit":
         # print the reference schema with value fields blanked, as a template to fill in
         tmpl = [{k: (v if k in ("name", "input") else "<your value>") for k, v in vec.items()
@@ -120,6 +129,16 @@ def main(argv: list) -> int:
     print()
     for layer, (p, t) in sorted(layers.items()):
         print(f"  {layer:16} {p}/{t}")
+
+    if require is not None:
+        if require not in layers:
+            print(f"\nunknown layer {require!r}; layers are: {', '.join(sorted(layers))}")
+            return 2
+        p, t = layers[require]
+        ok = p == t
+        print(f"\n{'PASS' if ok else 'FAIL'}: required layer {require!r} reproduced {p}/{t}")
+        return 0 if ok else 1
+
     print(f"\n{'PASS' if n_pass == n_total else 'FAIL'}: {n_pass}/{n_total} vectors reproduced")
     if n_pass != n_total:
         print("A conforming implementation reproduces every vector. See the diffs above; the "
