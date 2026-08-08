@@ -471,9 +471,16 @@ static void cr_chain_digest(const char (*certs)[72], int count, char out[72])
 static void cr_print_receipt(FILE *f, const char *manifest, const char *certificate,
                              const char *host_note)
 {
+    /* host_note is a free-text string field, so it must be JSON-escaped like any other
+     * caller string (found 2026-08-08, same class as the id/version escaping fix): a note
+     * containing a quote/backslash/control char otherwise emits INVALID JSON that a
+     * verifier's parser rejects. `certificate` is a sha256:<hex> literal and `manifest` is
+     * an already-built JSON *value* (not a string), so neither needs escaping. */
+    char note_e[CR_JSON_ESC_MAX];
+    cr__json_escape(host_note, note_e, sizeof note_e);
     fprintf(f, "{\"certificate\":\"%s\",\"manifest\":%s,"
                "\"meta\":{\"emitter\":\"f2-cl_bposit-host\",\"note\":\"%s\"}}\n",
-            certificate, manifest, host_note);
+            certificate, manifest, note_e);
 }
 
 #endif /* CR_RECEIPT_H */
