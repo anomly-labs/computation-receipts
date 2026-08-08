@@ -22,9 +22,10 @@ adversarial testing campaign (2026-08-08):
   exotic-numpy-dtype fuzzer over the tensor-digest layer (collision / reproducibility),
   a chain/chunked-receipt verify fuzzer, a cross-version-section weaponization of the
   challenge-response protocol, a network-mocked `beacon.audit` hostile-transcript fuzzer,
-  a profile-registry fuzzer, and an HTTP-level hostile-body sweep of the verifier service
+  a profile-registry fuzzer, an HTTP-level hostile-body sweep of the verifier service, and
+  a canonicalisation (non-finite-value) fuzzer
 
-**Fourteen real defects were found and fixed** in the process (two would have been release
+**Fifteen real defects were found and fixed** in the process (two would have been release
 blockers). No forgery of the certificate binding has been found. All shipped self-checks
 currently pass — run them yourself:
 
