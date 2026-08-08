@@ -991,6 +991,14 @@ def conformance_vectors() -> list[dict[str, Any]]:
     out.append({"name": "canonical/utf8", "input": uni,
                 "canonical": canonical_bytes(uni).decode(),
                 "digest": digest_bytes(canonical_bytes(uni))})
+    # Pin spec §2 rule 6 (string escaping) with a vector: the solidus is NOT escaped, and
+    # C0 controls use the short forms where defined and lowercase \u00xx otherwise. Without
+    # this an independent implementer could legally emit `\/`, `	`, or uppercase hex and
+    # produce a different certificate for the same computation id (ids routinely contain `/`).
+    esc = {"path": "model/forward", "ctl": "a\tb\nc\x1fd", "q": "he said \"hi\"\\done"}
+    out.append({"name": "canonical/escaping", "input": esc,
+                "canonical": canonical_bytes(esc).decode(),
+                "digest": digest_bytes(canonical_bytes(esc))})
 
     a = np.arange(6, dtype=np.float64).reshape(2, 3)
     out.append({"name": "tensor/float64-2x3", "digest": digest_tensor(a)})

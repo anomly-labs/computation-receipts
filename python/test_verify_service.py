@@ -18,7 +18,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cr.receipt import build_receipt, build_sampled_receipt, sample_indices_of  # noqa: E402
+from cr.receipt import (  # noqa: E402
+    build_receipt, build_sampled_receipt, conformance_vectors, sample_indices_of,
+)
 from cr_verify_service import H  # noqa: E402
 
 PORT = 8329
@@ -58,7 +60,7 @@ def main() -> int:
     ok["ui_serves"] = b"Computation Receipt verifier" in urllib.request.urlopen(
         f"http://127.0.0.1:{PORT}/").read()
     ok["vectors_serve"] = len(json.load(urllib.request.urlopen(
-        f"http://127.0.0.1:{PORT}/vectors"))) == 13
+        f"http://127.0.0.1:{PORT}/vectors"))) == len(conformance_vectors())
     ok["honest_accept"] = post("/verify", {"claimed": rjson(claimed),
                                            "recomputed": rjson(recomputed)})["status"] == "ACCEPT"
     ok["tamper_reject"] = post("/verify", {"claimed": rjson(claimed),

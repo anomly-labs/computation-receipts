@@ -57,10 +57,23 @@ bytes for equal manifests.
 3. No insignificant whitespace: separators are exactly `,` and `:`.
 4. `NaN`, `Infinity`, `-Infinity` MUST NOT appear; a manifest containing them is malformed.
 5. Non-ASCII characters are emitted literally (not `\u`-escaped).
+6. **String escaping is exactly this and nothing else.** Within a string, escape `"` as `\"`
+   and `\` as `\\`; escape the C0 controls U+0000–U+001F as `\b` `\t` `\n` `\f` `\r` where
+   those two-character forms are defined and as `\u00xx` (with **lowercase** hex digits)
+   otherwise. The solidus `/` is **NOT** escaped. No other character is escaped.
+7. **Numbers are integers only.** A conformant manifest contains no floating-point *values*
+   (shapes and parameters are integers, digests are strings); integers are written in base 10
+   with no leading zeros and a leading `-` for negatives. Floating-point serialization is
+   therefore out of scope for v0.1.
 
 > Rationale: this is the minimum that makes two independent implementations agree. Anything
 > weaker — pretty-printed JSON, insertion-ordered keys, a language's default float repr — makes
-> the digest an artifact of the emitter rather than of the computation.
+> the digest an artifact of the emitter rather than of the computation. Rules 6–7 were added
+> after an independent from-scratch canonicaliser showed that rules 1–5 alone left the string
+> escaping under-pinned: RFC 8259 permits `\/`, `	`-style control escapes, and uppercase
+> `\u` hex, so two honest emitters could produce different bytes — and therefore different
+> certificates — for the *same* computation id (ids routinely contain `/`). The reference
+> implementations (Python and C) already emit exactly rule 6; this pins the spec to them.
 
 ## 3. Digests
 
