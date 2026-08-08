@@ -15,7 +15,10 @@ whose time is strictly after it received the commitment, waits for R to be publi
 and uses its randomness. The transcript records the round number, so an auditor
 checks three things: the commitment predates round R's publish time, the challenge
 equals round R's randomness (re-fetched from the beacon, not from the transcript),
-and the sample indices derive from that challenge.
+and the sample indices derive from that challenge. `audit()` below covers the first
+two — the beacon PROVENANCE. The third is checked separately, in the receipt-
+verification step, by `sample_indices_of` re-deriving the indices from the challenge;
+`audit()` does not itself re-derive them.
 
 Honest scope: `audit()` checks the transcript against the LIVE public beacon — chain
 hash, round, randomness. It does not re-verify the BLS signature chain itself (the

@@ -72,6 +72,11 @@ def handle(path: str, body: dict) -> dict:
     if path == "/beacon-audit":
         from cr.beacon import audit
         t = body["transcript"]
+        # the transcript is client-supplied; `t.get(...)` on a non-object would raise
+        # AttributeError and be miscategorised as a 502 server error (see do_POST) — a
+        # malformed request is the client's fault, so refuse it as a 400.
+        if not isinstance(t, dict):
+            raise ReceiptError("transcript must be a JSON object")
         failures = audit(t.get("beacon", t),
                          commit_time=t.get("commit_received_unix"))
         return {"ok": not failures, "failures": failures}
@@ -142,9 +147,12 @@ class H(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(n) or b"{}")
             self._send(200, handle(self.path, body))
-        except (ReceiptError, KeyError, ValueError, TypeError) as e:
+        # RecursionError: json.loads raises it on a deeply-nested body — that is a malformed
+        # CLIENT request (400), not a server/upstream fault (502). Same misclassification the
+        # library-level from_json fix closed; keep the HTTP surface consistent with it.
+        except (ReceiptError, KeyError, ValueError, TypeError, RecursionError) as e:
             self._send(400, {"error": str(e)})
-        except Exception as e:  # network failures on beacon audit, etc.
+        except Exception as e:  # genuine server-side faults: network failure on beacon audit, etc.
             self._send(502, {"error": str(e)})
 
     def log_message(self, *a):  # quiet
