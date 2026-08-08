@@ -26,8 +26,10 @@ adversarial testing campaign (2026-08-08):
   a canonicalisation (non-finite-value) fuzzer, a C↔Python special-character emitter
   differential, and a graph-digest / C-print hostile-input probe
 
-**Eighteen code defects were found and fixed** in the shipped surface, plus three spec-level clarifications (S1-S3) pinned in `spec/CR-v0.1.md`, (two would have been
-release blockers). No forgery of the certificate binding has been found. All shipped self-checks
+**Eighteen code defects were found and fixed** in the shipped surface (two would have been
+release blockers), plus three spec-level clarifications (S1–S3) pinned in `spec/CR-v0.1.md`
+after an independent implementation built from the spec text alone found cross-implementation
+ambiguities. No forgery of the certificate binding has been found. All shipped self-checks
 currently pass — run them yourself:
 
 ```bash
