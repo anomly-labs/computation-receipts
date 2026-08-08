@@ -103,6 +103,12 @@ def audit(provenance: dict[str, Any], *, commit_time: float | None = None) -> li
     randomness: re-fetches the pinned round from the public network and compares.
     """
     failures = []
+    # ROBUSTNESS (found 2026-08-08, beacon-audit fuzz): a public auditing tool ingests an
+    # untrusted transcript, so the provenance may be any JSON value, not an object. Calling
+    # .get() on a non-dict raised AttributeError — a crash instead of the audit FAILURE this
+    # function contracts to return on a hostile transcript.
+    if not isinstance(provenance, dict):
+        return [f"beacon provenance is not an object: got {type(provenance).__name__}"]
     if provenance.get("source") != "drand":
         return [f"unknown beacon source {provenance.get('source')!r}"]
     if provenance.get("chain_hash") != CHAIN_HASH:
@@ -113,17 +119,29 @@ def audit(provenance: dict[str, Any], *, commit_time: float | None = None) -> li
         r = int(provenance["round"])
         if r < 1:
             raise ValueError
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, OverflowError):
+        # OverflowError: json.loads parses `Infinity`/`NaN` by default, and int(inf) raises
+        # OverflowError (not ValueError) — a transcript round of Infinity must be an audit
+        # FAILURE, not a crash.
         return failures + [f"transcript round is missing or invalid: {provenance.get('round')!r}"]
     try:
         pulse = fetch_round(r)
     except Exception as e:
         return failures + [f"could not re-fetch round {r} from the beacon to verify: {e}"]
+    if not isinstance(pulse, dict):
+        return failures + [f"beacon returned a non-object response for round {r}"]
     if pulse.get("randomness") != provenance.get("randomness"):
         failures.append(f"round {r} randomness does not match the public beacon")
     if provenance.get("round_time") != round_time(r):
         failures.append("transcript round_time inconsistent with chain parameters")
-    if commit_time is not None and round_time(r) <= commit_time:
-        failures.append("beacon round is not after the commitment — challenge was "
-                        "predictable when the output was fixed")
+    if commit_time is not None:
+        # commit_time gates a SECURITY check (the beacon must post-date the commitment), so a
+        # non-numeric value must fail loudly, never silently skip the ordering comparison
+        # (and `<=` on a str/list raises TypeError — the untrusted-input crash class again).
+        if isinstance(commit_time, bool) or not isinstance(commit_time, (int, float)):
+            failures.append(f"commit_time is not a valid timestamp: {commit_time!r}; cannot "
+                            "verify the beacon post-dates the commitment")
+        elif round_time(r) <= commit_time:
+            failures.append("beacon round is not after the commitment — challenge was "
+                            "predictable when the output was fixed")
     return failures

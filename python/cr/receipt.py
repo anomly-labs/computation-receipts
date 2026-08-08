@@ -481,6 +481,13 @@ def check_wellformed(r: Receipt) -> Verdict:
     a = m["arithmetic"]
     if not isinstance(a, dict) or "profile" not in a:
         return Verdict(MALFORMED, "arithmetic section missing profile")
+    # ROBUSTNESS (found 2026-08-08, profile-registry fuzz): profile must be a string before
+    # any registry lookup. `PROFILES.get(profile)` (and `_assessable`'s `profile in PROFILES`)
+    # raise TypeError on an unhashable value — a receipt whose profile is a JSON list/object
+    # then crashed check_wellformed/verify instead of getting MALFORMED. Reachable via from_json.
+    if not isinstance(a["profile"], str):
+        return Verdict(MALFORMED,
+                       f"arithmetic.profile must be a string, not {type(a['profile']).__name__}")
     reg = PROFILES.get(a["profile"])
     if reg is not None:
         for field in ("accumulation", "order_independent", "params"):
