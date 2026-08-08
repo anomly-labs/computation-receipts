@@ -1004,6 +1004,12 @@ def conformance_vectors() -> list[dict[str, Any]]:
     out.append({"name": "tensor/float64-2x3", "digest": digest_tensor(a)})
     b = np.arange(4, dtype=np.int32)
     out.append({"name": "tensor/int32-4", "digest": digest_tensor(b)})
+    # Pin spec §3.1 for SINGLE-BYTE dtypes (S2): int8's numpy code is "|i1"; the dtype-string
+    # must strip the "|" not-applicable marker to "i1". A conformant impl reproduces this
+    # digest; one that keeps "|i1" diverges — and int8/uint8 are the quantized-weight dtypes
+    # this format primarily attests, so an untested divergence here would be severe.
+    c8 = np.arange(-3, 3, dtype=np.int8)
+    out.append({"name": "tensor/int8-6", "digest": digest_tensor(c8)})
     out.append({"name": "tensors/named-order-independent",
                 "digest": digest_tensors({"w2": b, "w1": a})})
 

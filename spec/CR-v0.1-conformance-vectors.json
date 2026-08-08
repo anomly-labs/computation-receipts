@@ -48,6 +48,10 @@
     "digest": "sha256:7d4867aa7af9e352eef1491bb1c01d23d22cca89adeb08036d31498ba552872b"
   },
   {
+    "name": "tensor/int8-6",
+    "digest": "sha256:685ee43fd6ba87924144d034225aa4004d96f977e680537524a9371886474efe"
+  },
+  {
     "name": "tensors/named-order-independent",
     "digest": "sha256:71c0eaf694f0afbb917370624a1d530feeafe373a44045c51326eada54d957e4"
   },

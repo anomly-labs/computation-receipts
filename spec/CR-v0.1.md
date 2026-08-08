@@ -89,19 +89,32 @@ H( canonical({"dtype": <dtype-string>, "shape": [<dims>]}) || <raw bytes, little
 ```
 
 Byte order is **forced to little-endian**, not inherited from the host. `dtype-string` is the
-numpy-style code with byte-order prefix stripped (`f8`, `i4`, …).
+numpy-style code with the **leading byte-order / alignment character removed** — that is, a
+single leading `<`, `>`, `=`, **or `|`** is stripped: `<f8`→`f8`, `<i4`→`i4`, and — the case the
+words "byte-order prefix" alone leave ambiguous — `|i1`→`i1`, `|u1`→`u1`, `|b1`→`b1` for the
+single-byte types (int8, uint8, bool), whose numpy code carries `|` (the *not-applicable* marker,
+not a byte order). Only numeric dtypes are digestible; object and structured (`O`/`V`) dtypes are
+refused (they have no reproducible, collision-free byte encoding).
 
 > Rationale: a receipt produced on a big-endian machine must hash identically to one produced on a
 > little-endian machine. Inheriting host byte order would break cross-hardware verification, which
-> is the entire premise.
+> is the entire premise. The `|` clarification was added after an independent implementation showed
+> that "byte-order prefix stripped" alone diverges on int8/uint8/bool — precisely the quantized
+> weight dtypes this format exists to attest — because one reader keeps `|i1` while the reference
+> emits `i1`, yielding different certificates for the same tensor.
 
 ### 3.2 Named tensor collection
 
-For a set of named tensors (a model's weights, or a set of inputs), iterate names in sorted order
-and update the hash with `canonical({"name": <name>, "digest": <tensor digest>})` for each. An
-empty collection is permitted and yields the digest of the empty hash state.
+For a set of named tensors (a model's weights, or a set of inputs), iterate names **sorted by
+Unicode code point, ascending** (the same order as object keys in §2 rule 2) and update the hash
+with `canonical({"name": <name>, "digest": <tensor digest>})` for each. An empty collection is
+permitted and yields the digest of the empty hash state (for `sha256`, the digest of the empty
+byte string, `sha256:e3b0c442…b855`).
 
-> Rationale: dictionary iteration order is not part of the model.
+> Rationale: dictionary iteration order is not part of the model. "Sorted by Unicode code point" is
+> stated explicitly (not just "sorted") because byte-order, UTF-16-code-unit, and locale sorts
+> disagree on names outside the BMP, which would give two honest implementations different
+> collection digests for the same model.
 
 ## 4. The manifest
 
