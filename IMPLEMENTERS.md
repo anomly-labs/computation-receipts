@@ -106,7 +106,15 @@ canonicalisation, receipt, sampled and chain value, *and* the five `refuse/*` ve
 verifier derives (four `MALFORMED`, one `UNVERIFIABLE`) — using only canonicalisation + sha256 +
 the PRF, no b-posit arithmetic (a receipt's *values* need the number system; its *bytes* and its
 *verdicts* do not). It is a complete independent implementation, in a different language, built
-from the spec text: the concrete proof that §9 holds.
+from the spec text: the concrete proof that §9 holds. And it is usable, not only readable —
+point it at a receipt and it returns a verdict (it even verifies receipts the *Python*
+reference emits, which is the whole premise: a receipt one implementation writes, another
+checks):
+
+```bash
+node examples/js/cr.mjs verify path/to/receipt.json
+# -> MALFORMED / UNVERIFIABLE / WELL-FORMED  <reason>
+```
 
 ## Self-certify with the conformance runner
 

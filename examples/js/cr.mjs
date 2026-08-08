@@ -15,6 +15,7 @@
 // emitter half of a second implementation; verifying is left as the (well-specified) next step.
 
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 // ---- §2 canonical form -------------------------------------------------------------------
 function escStr(s) {
@@ -263,4 +264,42 @@ const vectors = [
   refuseVec('refuse/cross-version-section', crossVersion),
 ];
 
-process.stdout.write(JSON.stringify(vectors, null, 2) + '\n');
+// ---- CLI --------------------------------------------------------------------------------
+// A standalone verdict for a single receipt, using only the structural rules this file already
+// implements. Without an independent re-execution a verifier cannot reach ACCEPT/REJECT, but it
+// can already deliver MALFORMED, UNVERIFIABLE, and "well-formed, awaiting re-execution".
+function verifyReceipt(receipt) {
+  if (typeof receipt !== 'object' || receipt === null || !('manifest' in receipt))
+    return { status: 'MALFORMED', reason: 'receipt must be an object with a manifest' };
+  const m = receipt.manifest;
+  const r = malformedReason(m);
+  if (r !== null) return { status: 'MALFORMED', reason: r };
+  let cert;
+  try { cert = certificateOf(m); }
+  catch (e) { return { status: 'MALFORMED', reason: 'manifest is not canonicalisable: ' + e.message }; }
+  if (typeof receipt.certificate !== 'string' || receipt.certificate !== cert)
+    return { status: 'MALFORMED', reason: 'certificate does not match manifest (tampered or miscomputed)' };
+  if (!(m.arithmetic.profile in PROFILES))
+    return { status: 'UNVERIFIABLE', reason: `arithmetic profile '${m.arithmetic.profile}' is not in this verifier's registry` };
+  if (!m.arithmetic.order_independent)
+    return { status: 'UNVERIFIABLE', reason: 'arithmetic is order-dependent; no re-execution can settle it' };
+  return { status: 'WELL-FORMED', reason: 'self-consistent and order-independent; supply an independent re-execution to obtain ACCEPT/REJECT' };
+}
+
+if (process.argv[2] === 'verify') {
+  // node cr.mjs verify <receipt.json>  — read a receipt and print its verdict + reason.
+  const path = process.argv[3];
+  if (!path) { console.error('usage: node cr.mjs verify <receipt.json>'); process.exit(2); }
+  let verdict;
+  try {
+    verdict = verifyReceipt(JSON.parse(readFileSync(path, 'utf8')));
+  } catch (e) {
+    // a verifier must ANSWER, never crash, on hostile input — this file's own §6 lesson.
+    verdict = { status: 'MALFORMED', reason: `could not read receipt: ${e.message}` };
+  }
+  console.log(`${verdict.status}  ${verdict.reason}`);
+  process.exit(verdict.status === 'WELL-FORMED' ? 0 : 1);
+} else {
+  // no-arg (and any other) mode: emit the conformance vectors for the runner (unchanged).
+  process.stdout.write(JSON.stringify(vectors, null, 2) + '\n');
+}
