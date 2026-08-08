@@ -66,6 +66,15 @@ def check_reveal(
         return Verdict(MALFORMED,
                        "commitment must be a FULL receipt: a sampled commitment lets the "
                        "prover grind before the challenge exists")
+    # ROBUSTNESS (found 2026-08-08, cross-section fuzz): the reveal is prover-supplied and
+    # only ever validated implicitly. base_manifest() strips `cr` and `sample`, so a reveal
+    # can match the committed base while carrying a cr/sample combination that is NOT a
+    # well-formed sampled receipt (e.g. cr 0.1 + a sample section). sample_indices_of() then
+    # RAISES ReceiptError rather than returning a verdict, crashing the protocol verifier
+    # instead of refusing. Validate the reveal up front, symmetric with the commitment.
+    wfr = check_wellformed(reveal)
+    if not wfr:
+        return Verdict(MALFORMED, f"reveal not well-formed: {wfr.reason}")
     if not nonce:
         return Verdict(MALFORMED, "empty challenge — that is the fixed-string mode this "
                                   "protocol exists to replace")

@@ -489,12 +489,21 @@ def check_wellformed(r: Receipt) -> Verdict:
                                f"arithmetic.{field} {a.get(field)!r} contradicts the registered "
                                f"profile {a['profile']!r} ({reg[field]!r}); the registry is "
                                "authoritative, not the receipt")
-    # Version and section travel together or not at all: a v0.1 receipt must not smuggle a
-    # sample or chunk section (downgrade confusion); 0.1.1/0.1.2 must carry theirs.
+    # Version and section travel together or not at all: each version carries EXACTLY its
+    # own optional section and no other. A v0.1 receipt must not smuggle a sample or chunk
+    # section; and — HARDENING (found 2026-08-08, cross-section fuzz) — a sampled (0.1.1)
+    # receipt must not carry a chunk section, nor a chunked (0.1.2) receipt a sample
+    # section. The verdict paths already resist a cross-section (verify rebinds via the
+    # certificate; verify_sampled/verify_chain gate on `cr`), so this is defence in depth
+    # against downgrade/confusion, and it removes the smuggle surface outright.
     if m["cr"] == CR_VERSION and "sample" in m:
         return Verdict(MALFORMED, "v0.1 receipt carries a sample section; sampled receipts are cr 0.1.1")
     if m["cr"] == CR_VERSION and "chunk" in m:
         return Verdict(MALFORMED, "v0.1 receipt carries a chunk section; chunked receipts are cr 0.1.2")
+    if m["cr"] == CR_SAMPLED_VERSION and "chunk" in m:
+        return Verdict(MALFORMED, "sampled (0.1.1) receipt carries a chunk section; chunked receipts are cr 0.1.2")
+    if m["cr"] == CR_CHUNKED_VERSION and "sample" in m:
+        return Verdict(MALFORMED, "chunked (0.1.2) receipt carries a sample section; sampled receipts are cr 0.1.1")
     if m["cr"] == CR_CHUNKED_VERSION:
         c = m.get("chunk")
         if not isinstance(c, dict):
