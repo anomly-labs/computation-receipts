@@ -31,11 +31,13 @@ python3 conformance_runner.py --demo   # the third-party self-cert runner, gradi
 python3 cr_verify_service.py
 ```
 
-A from-scratch **JavaScript** implementation of the canonicalisation layer proves the format is
-implementable without this repository (spec §9) — graded by the same runner a third party uses:
+A from-scratch **JavaScript** implementation (emitter *and* verifier) proves the format is
+implementable without this repository (spec §9): it reproduces **all 17 vectors** — every
+digest, certificate, sampled-index set, chain digest and refusal verdict — graded by the same
+runner a third party uses:
 
 ```bash
-node examples/js/cr_canonical.mjs | python3 python/conformance_runner.py /dev/stdin --require canonicalisation
+node examples/js/cr.mjs | python3 python/conformance_runner.py /dev/stdin   # PASS: 17/17
 ```
 
 Requires Python 3.10+ and numpy. No other dependencies, no account, no hardware.

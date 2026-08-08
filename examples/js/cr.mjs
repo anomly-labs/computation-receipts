@@ -79,12 +79,64 @@ function namedDigest(named) {
 // ---- §5 certificate ----------------------------------------------------------------------
 const certificateOf = manifest => digestBytes(canon(manifest));
 
-// ---- §7 the one registered profile used by the vectors -----------------------------------
-const ARITH = {
-  accumulation: 'exact', order_independent: true,
-  params: { es: 3, frac_bits: 96, n: 16, quire_bits: 256 },
-  profile: 'bposit16-quire256',
+// ---- §7 the profile registry (the entries the vectors touch) -----------------------------
+const PROFILES = {
+  'bposit16-quire256': { accumulation: 'exact', order_independent: true,
+    params: { es: 3, frac_bits: 96, n: 16, quire_bits: 256 } },
+  float64: { accumulation: 'rounded', order_independent: false, params: { bits: 64 } },
+  float32: { accumulation: 'rounded', order_independent: false, params: { bits: 32 } },
 };
+const ARITH = { ...PROFILES['bposit16-quire256'], profile: 'bposit16-quire256' };
+
+// ---- §6 / §6.1 verification (the verdict half of the implementation) ----------------------
+// A "<alg>:<lowercase-hex>" digest of the length the algorithm produces (§3).
+function isDigest(s) {
+  if (typeof s !== 'string' || !s.includes(':')) return false;
+  const i = s.indexOf(':'), n = { sha256: 64, sha512: 128 }[s.slice(0, i)];
+  const hex = s.slice(i + 1);
+  return n !== undefined && hex.length === n && /^[0-9a-f]+$/.test(hex);
+}
+// Structural validation (§6 MALFORMED conditions + §6.1 rule 1 + §10 + S7). Returns null if
+// well-formed, else the MALFORMED reason. Deep-equality of params is via canonicalisation.
+function malformedReason(m) {
+  if (typeof m !== 'object' || m === null || Array.isArray(m)) return 'manifest must be an object';
+  if (!['0.1', '0.1.1', '0.1.2'].includes(m.cr)) return `unsupported version ${m.cr}`;
+  for (const k of ['digest_alg', 'arithmetic', 'computation', 'model', 'input', 'output'])
+    if (!(k in m)) return `missing ${k}`;
+  if (!['sha256', 'sha512'].includes(m.digest_alg)) return 'unsupported digest algorithm';
+  for (const sec of ['model', 'input', 'output'])
+    if (!isDigest(m[sec].digest)) return `${sec}.digest missing or not a well-formed digest`;
+  if (!Array.isArray(m.output.shape) || m.output.shape.length === 0) return 'output.shape must be non-empty';
+  const a = m.arithmetic;
+  if (typeof a !== 'object' || !('profile' in a)) return 'arithmetic section missing profile';
+  if (typeof a.profile !== 'string') return 'arithmetic.profile must be a string';
+  const reg = PROFILES[a.profile];                                    // §6.1 rule 1
+  if (reg) for (const f of ['accumulation', 'order_independent', 'params'])
+    if (canon(a[f]) !== canon(reg[f])) return `arithmetic.${f} contradicts the registered profile`;
+  if (m.cr === '0.1' && 'sample' in m) return 'v0.1 receipt carries a sample section';   // S7
+  if (m.cr === '0.1' && 'chunk' in m) return 'v0.1 receipt carries a chunk section';
+  if (m.cr === '0.1.1' && 'chunk' in m) return 'sampled receipt carries a chunk section';
+  if (m.cr === '0.1.2' && 'sample' in m) return 'chunked receipt carries a sample section';
+  if (m.cr === '0.1.1') {
+    const s = m.sample;
+    if (typeof s !== 'object' || s === null) return 'missing sample section';
+    if (s.rule !== 'sha256-ctr-reject-v1') return 'unknown sample rule';
+    if (!(Number.isInteger(s.n_units) && Number.isInteger(s.size) && 1 <= s.size && s.size <= s.n_units))
+      return 'sample size/n_units invalid';
+    if (typeof s.challenge !== 'string' || typeof s.digest !== 'string') return 'sample challenge/digest';
+    if (s.challenge.length % 2 || !/^[0-9a-fA-F]*$/.test(s.challenge)) return 'sample.challenge not hex';
+    if (m.output.shape[0] !== s.n_units) return 'sample.n_units != output.shape[0]';   // §10
+  }
+  return null;
+}
+// §6 verdict for a claimed receipt with no re-execution supplied — enough for the refuse/*
+// vectors: MALFORMED if structurally invalid; UNVERIFIABLE if the profile is unregistered
+// (§6.1 rule 2 — the claim cannot be assessed); otherwise a full verify would re-execute.
+function refusalVerdict(m) {
+  if (malformedReason(m) !== null) return 'MALFORMED';
+  if (!(m.arithmetic.profile in PROFILES)) return 'UNVERIFIABLE';
+  return 'ACCEPT';
+}
 
 // ---- §10 sampled-index PRF (sha256-ctr-reject-v1) -----------------------------------------
 function sampledIndices(base, challengeHex, nUnits, size) {
@@ -177,10 +229,19 @@ const closing = {
   output: { digest: D_A, shape: [2, 3] },
 };
 
-// ---- emit every vector this emitter can reproduce (canonicalisation + receipt layers) -----
+// ---- refuse/* manifests (mutations of the valid ones, exactly as the reference builds them) --
+const profileContradicts = { ...exact, arithmetic: { ...ARITH, profile: 'float64' } };       // §6.1 rule 1
+const sampleSpaceShrunk = { ...sampled, sample: { ...sampled.sample, n_units: 4 } };          // §10
+const unknownProfile = { ...exact, arithmetic: { ...ARITH, profile: 'vendor-unregistered-v0' } }; // §6.1 rule 2
+const outputDigestMissing = { ...sampled, output: { shape: sampled.output.shape } };          // no digest
+const crossVersion = { ...sampled, chunk: { closing: false, index: 0, prev_certificate: '' } }; // S7
+
+// ---- emit every vector this implementation can reproduce ----------------------------------
 const canonVec = (name, input) => ({ name, input, canonical: canon(input), digest: digestBytes(canon(input)) });
 const receiptVec = (name, m, extra = {}) =>
   ({ name, certificate: certificateOf(m), manifest_canonical: canon(m), ...extra });
+const refuseVec = (name, m) =>
+  ({ name, certificate: certificateOf(m), manifest_canonical: canon(m), expect_verdict: refusalVerdict(m) });
 
 const vectors = [
   canonVec('canonical/empty-object', {}),
@@ -195,6 +256,11 @@ const vectors = [
   receiptVec('receipt/sampled', sampled, { sample_indices: sIdx }),
   receiptVec('receipt/chunk-0', chunk0, { chain_digest: chainDigest([chunk0Cert]) }),
   receiptVec('chain/closing-2chunk', closing, { chain_digest: twoChunkDigest }),
+  refuseVec('refuse/profile-contradicts-registry', profileContradicts),
+  refuseVec('refuse/sample-space-shrunk', sampleSpaceShrunk),
+  refuseVec('refuse/unknown-profile-not-accepted', unknownProfile),
+  refuseVec('refuse/output-digest-missing', outputDigestMissing),
+  refuseVec('refuse/cross-version-section', crossVersion),
 ];
 
 process.stdout.write(JSON.stringify(vectors, null, 2) + '\n');
