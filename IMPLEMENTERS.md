@@ -8,15 +8,23 @@ spec wins and the disagreement is a bug: please report it.
 ## Order of attack (mirrors spec §9-§10)
 
 1. **Canonicalisation first — no arithmetic needed.** Reproduce the `canonical/*`
-   vectors: UTF-8 JSON, keys sorted, separators `,` and `:` with no whitespace,
-   non-ASCII passed through as UTF-8 (not `\u`-escaped), and **NaN/Infinity are
-   errors**, never emitted. Three vectors, minutes of work, and they catch most
-   language-default JSON encoders doing something else.
+   vectors: UTF-8 JSON, keys sorted **by Unicode code point**, separators `,` and `:`
+   with no whitespace, non-ASCII passed through as UTF-8 (not `\u`-escaped), and
+   **NaN/Infinity are errors**, never emitted. **String escaping is pinned exactly**
+   (spec §2 rule 6, and the first thing an independent implementation gets subtly
+   wrong): escape only `"`→`\"`, `\`→`\\`, and the C0 controls U+0000–U+001F as
+   `\b \t \n \f \r` where defined else `\u00xx` with **lowercase** hex; the solidus
+   `/` is **not** escaped. The `canonical/escaping` vector exercises `/`, a tab and
+   `\x1f` precisely to catch a JSON encoder that escapes `\/` or emits `	`.
 2. **Tensor digests.** `sha256( canonical({"dtype":…,"shape":…}) ‖ raw-bytes )` with
-   the raw bytes **forced little-endian, C-order contiguous**. The dtype string is
-   numpy convention *without* the byte-order prefix (`u2`, `f8`, `i4`). Reproduce the
-   `tensor/*` and `tensors/*` vectors — the named-collection digest is
-   order-independent over names by construction; prove yours is.
+   the raw bytes **forced little-endian, C-order contiguous**. The dtype string is the
+   numpy code with the leading byte-order/alignment character stripped — and that
+   includes `|`: `<f8`→`f8`, `<i4`→`i4`, and for **single-byte types** (int8, uint8,
+   bool) `|i1`→`i1`, `|u1`→`u1`, `|b1`→`b1` (spec §3.1). Getting this wrong on int8 —
+   the quantized-weight case — is the difference between a matching and a diverging
+   certificate; the `tensor/int8-6` vector exists to catch it. Named collections
+   iterate names **sorted by Unicode code point** (§3.2); reproduce the `tensor/*` and
+   `tensors/*` vectors, and prove the collection digest is order-independent.
 3. **One full receipt.** Build the manifest exactly as §4 lays it out, hash it, match
    the published receipt vector byte-for-byte (`manifest_canonical` is in the vector
    precisely so you can diff bytes, not vibes).
@@ -24,9 +32,27 @@ spec wins and the disagreement is a bug: please report it.
    three `refuse/*` vectors. A verifier that cannot refuse is worthless; the two
    soundness bugs we found in our own code were both accept-what-must-be-rejected,
    and only negative vectors catch that class.
-5. **Sampled + chained receipts** (§10, §12): the PRF index derivation
-   (`sha256(seed ‖ counter_be8)` with modulo-bias rejection), and the chain rules
-   (prev-certificate linkage, closing receipt, the truncation refusal).
+5. **Sampled + chained receipts** (§10, §12), where the exact byte-level rules matter
+   most:
+   - **Sampled PRF (§10).** `seed = sha256(canonical(base) ‖ challenge_bytes)` where
+     `challenge_bytes` is the **hex-decode** of the `challenge` string, *not* its UTF-8
+     bytes (this is the single easiest thing to get wrong — it diverges on every
+     non-empty challenge). Draw `u64_be(sha256(seed ‖ counter_be8)[0:8]) mod n_units`
+     for counter 0,1,2,…, **rejecting draws ≥ ⌊2⁶⁴/n⌋·n** (do *not* implement the bound
+     as `(2⁶⁴−1)/n·n` — that wrongly rejects the top `n` draws), take the first `size`
+     distinct values, return sorted; `1 ≤ size ≤ n_units`. The `receipt/sampled` vector
+     publishes the derived indices (challenge `"beef"`) so a matching *digest* alone
+     cannot hide a wrong index rule.
+   - **Chains (§12).** `chain_digest` is over one hash, updated with
+     `canonical({"certificate": c})` for each **chunk** certificate in index order
+     (`0..n-1`) — **not** the closing receipt's own certificate, **not** raw-concatenated
+     strings. The `chain/closing-2chunk` vector pins it. Prev-certificate linkage,
+     the closing receipt's `n_chunks`/`chain_digest`, and the unclosed-chain truncation
+     refusal are all recomputed, never trusted.
+   - **Section exclusivity (§10).** Each version carries exactly its own optional
+     section: a `0.1.1` receipt MUST NOT carry a `chunk` section, a `0.1.2` MUST NOT
+     carry a `sample` section, a `0.1` neither. Any mix is `MALFORMED`
+     (`refuse/cross-version-section`).
 6. **Only then, arithmetic.** Everything above needs no number system. If your
    arithmetic can demonstrate order-independence (permute the contraction order,
    show the output digest unchanged), you can emit `order_independent: true`
@@ -56,10 +82,28 @@ spec wins and the disagreement is a bug: please report it.
   manifest + challenge; never read indices from anything the prover sent. Same for
   the chain: position, linkage, and the closing digest are recomputed, not trusted.
 
+## Self-certify with the conformance runner
+
+You do not have to eyeball diffs. Emit your conformance vectors in the published schema
+(`python/conformance_runner.py --emit` prints a fill-in template with the inputs and the
+value fields blanked), then grade yourself:
+
+```bash
+python3 python/conformance_runner.py your-vectors.json
+```
+
+It compares every pinned value — canonical bytes, digests, certificate,
+`manifest_canonical`, sampled indices, `chain_digest`, and the refuse-verdicts — against
+the published vectors and prints a per-vector PASS/FAIL with a precise field-level diff,
+plus coverage per layer (canonicalisation, which needs no arithmetic, vs receipt/verdict).
+`--demo` grades the reference against itself so you can see a full-green run first. The
+runner depends only on the published vectors file, so it is a neutral referee, not the
+reference grading itself.
+
 ## Getting listed
 
-When your implementation reproduces the 12 vectors (refusals included), open an issue
-with your results and a pointer to the code. We list independent implementations in
-the README with no further ceremony — an implementation we did not write is the most
-valuable thing this repository can accumulate, and the first spec ambiguity you hit
-is worth more to us than the listing is to you.
+When your implementation reproduces the 17 vectors (refusals included) — i.e. the runner
+prints `PASS: 17/17` — open an issue with your results and a pointer to the code. We list
+independent implementations in the README with no further ceremony — an implementation we
+did not write is the most valuable thing this repository can accumulate, and the first
+spec ambiguity you hit is worth more to us than the listing is to you.
