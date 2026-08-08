@@ -372,7 +372,11 @@ lets a verifier re-execute only a **sample** of output units (rows along axis 0 
 ```
 
 **Index derivation (normative).** Let `base` be the manifest with the `sample` key removed
-(note `base` still contains the FULL output digest). Then
+(note `base` still contains the FULL output digest). Let `challenge_bytes` be the raw bytes
+obtained by **hex-decoding** the `challenge` string — an even-length string of `0-9a-f` (the
+empty string decodes to zero bytes); it is **not** the UTF-8 bytes of the string. And `size`
+MUST satisfy `1 <= size <= n_units` — a verifier MUST reject a receipt that violates this,
+since the derivation cannot draw more distinct indices than the sampling space holds. Then
 
 ```
 seed    = SHA-256( canonical(base) || challenge_bytes )
