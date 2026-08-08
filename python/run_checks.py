@@ -12,6 +12,8 @@ network-dependent and is therefore not part of this gate).
   2. protocol      — the §10 challenge-protocol logic (arithmetic-free).
   3. service       — the local verifier service accepts honest / refuses tampered.
   4. c-standalone  — the dependency-free C emitter compiles and links with only libc.
+  5. runner        — the third-party conformance runner grades the reference against
+                     itself (the tool a second implementer uses to self-certify, §9).
 
 Run:  python3 run_checks.py
 """
@@ -53,6 +55,7 @@ def main() -> int:
         ("protocol", lambda: _run_py(["-m", "cr.protocol"], "PASS")),
         ("service", lambda: _run_py(["test_verify_service.py"], "PASS")),
         ("c-standalone", _c_standalone),
+        ("runner", lambda: _run_py(["conformance_runner.py", "--demo"], "PASS:")),
     ]
     print("# Computation Receipts — full repository self-check\n")
     all_ok = True
