@@ -110,5 +110,12 @@
     "certificate": "sha256:b19771a41dd6786034803333ee3c0654887f408e02727ea1ab95c1a81160bf7a",
     "expect_verdict": "MALFORMED",
     "why": "every bound section must carry a well-formed digest; a sampled receipt with no full-output digest would ACCEPT its sampled slice while never committing to the unsampled units, defeating §10"
+  },
+  {
+    "name": "refuse/cross-version-section",
+    "manifest_canonical": "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},\"profile\":\"bposit16-quire256\"},\"chunk\":{\"closing\":false,\"index\":0,\"prev_certificate\":\"\"},\"computation\":{\"id\":\"conformance.sampled\",\"version\":\"1\"},\"cr\":\"0.1.1\",\"digest_alg\":\"sha256\",\"input\":{\"digest\":\"sha256:ad6d749143dd8efa6c82957b639210e8e79e810c6884016ec6147710a0d07236\",\"n_tensors\":1},\"model\":{\"digest\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"n_tensors\":0},\"output\":{\"digest\":\"sha256:f0459f0cac4bf677a363193590075c0f3ed84bf274b39e8098a6f5e4fe5b256f\",\"shape\":[16,4]},\"sample\":{\"challenge\":\"beef\",\"digest\":\"sha256:a37a87afcac42ca56635f4faaac997a741e44fa998a2940f7549a2310e89cfa1\",\"n_units\":16,\"rule\":\"sha256-ctr-reject-v1\",\"size\":4}}",
+    "certificate": "sha256:1920653b2f9403668b725b9ca3fc75359753cbaceb776854910683eda247c214",
+    "expect_verdict": "MALFORMED",
+    "why": "section exclusivity (§10): each version carries exactly its own optional section — a 0.1.1 receipt must not carry a chunk section. Not soundness-affecting (the cert rebinds the whole manifest), but leaving it unstated lets one verifier MALFORMED what another ACCEPTs"
   }
 ]

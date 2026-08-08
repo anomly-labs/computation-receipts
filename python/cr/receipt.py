@@ -1092,6 +1092,17 @@ def conformance_vectors() -> list[dict[str, Any]]:
                 "why": "every bound section must carry a well-formed digest; a sampled "
                        "receipt with no full-output digest would ACCEPT its sampled slice "
                        "while never committing to the unsampled units, defeating §10"})
+
+    _cross = dict(sr.manifest)                            # a SAMPLED (0.1.1) receipt...
+    _cross["chunk"] = {"index": 0, "prev_certificate": "", "closing": False}  # ...smuggling a chunk section
+    out.append({"name": "refuse/cross-version-section",
+                "manifest_canonical": canonical_bytes(_cross).decode(),
+                "certificate": certificate_of(_cross),
+                "expect_verdict": MALFORMED,
+                "why": "section exclusivity (§10): each version carries exactly its own "
+                       "optional section — a 0.1.1 receipt must not carry a chunk section. "
+                       "Not soundness-affecting (the cert rebinds the whole manifest), but "
+                       "leaving it unstated lets one verifier MALFORMED what another ACCEPTs"})
     return out
 
 

@@ -421,6 +421,16 @@ reproduce `sample.digest` bit-exactly under order-independent arithmetic; order-
 profiles are UNVERIFIABLE exactly as for full receipts; a `cr: "0.1"` receipt carrying a
 `sample` section, or a `cr: "0.1.1"` receipt lacking one, is MALFORMED.
 
+**Section exclusivity (normative).** Each version carries **exactly its own** optional section
+and no other, so two verifiers cannot disagree over a receipt that mixes them: a `cr: "0.1"`
+receipt MUST NOT carry a `sample` or `chunk` section; a `cr: "0.1.1"` receipt MUST carry a
+`sample` section and MUST NOT carry a `chunk` section; a `cr: "0.1.2"` receipt MUST carry a
+`chunk` section and MUST NOT carry a `sample` section. Any violation is `MALFORMED`. (Mixing a
+foreign section cannot force a *wrong* verdict — the certificate rebinds the whole manifest and
+`verify_sampled` / `verify_chain` gate on `cr` — but a spec that left the cross cases unstated
+would let one implementation `MALFORMED` a receipt another `ACCEPT`s, which is itself a
+conformance failure.)
+
 **Security boundary (normative, and the honest part).** Sampling weakens the claim, in two
 stated ways, and implementations MUST NOT present a sampled ACCEPT as a full one:
 
