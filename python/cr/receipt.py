@@ -351,6 +351,11 @@ def validate_graph(graph: Mapping[str, Any]) -> None:
     version, key set, topological node order, and reference discipline (`in:<name>` /
     `node:<j>` with j strictly before the referencing node).
     """
+    # ROBUSTNESS (found 2026-08-08, graph-digest fuzz): the graph is untrusted JSON and may be
+    # any value, not an object — `graph.get(...)` on a non-dict would raise AttributeError
+    # (reachable via the CLI graph-digest action, which does not catch it). Answer MALFORMED.
+    if not isinstance(graph, Mapping):
+        raise ReceiptError(f"graph must be an object, got {type(graph).__name__}")
     if graph.get("crg") != CRG_VERSION:
         raise ReceiptError(f"unsupported graph version {graph.get('crg')!r}")
     if set(graph) != {"crg", "inputs", "nodes", "outputs"}:
@@ -381,6 +386,8 @@ def validate_graph(graph: Mapping[str, Any]) -> None:
             raise ReceiptError(f"node {k}: op must be a non-empty string")
         if not isinstance(nd["attrs"], dict):
             raise ReceiptError(f"node {k}: attrs must be an object")
+        if not isinstance(nd["args"], list):
+            raise ReceiptError(f"node {k}: args must be a list")   # else `for ref in ...` raises TypeError
         for ref in nd["args"]:
             check_ref(ref, k)
     outs = graph["outputs"]
@@ -393,7 +400,15 @@ def validate_graph(graph: Mapping[str, Any]) -> None:
 def canonical_graph_digest(graph: Mapping[str, Any], alg: str = "sha256") -> str:
     """digest(canonical(graph)) after structural validation — the computation's identity."""
     validate_graph(graph)
-    return digest_bytes(canonical_bytes(graph), alg)
+    # ROBUSTNESS (found 2026-08-08, graph-digest fuzz): a structurally-valid graph can still
+    # carry a non-finite float (NaN/Infinity — json.loads parses them) or another value
+    # canonical_bytes cannot serialise, which raises ValueError/TypeError. Answer with a
+    # ReceiptError like every other digest path, never an unexpected exception.
+    try:
+        return digest_bytes(canonical_bytes(graph), alg)
+    except (ValueError, TypeError) as e:
+        raise ReceiptError(f"graph is not canonicalisable (non-finite float or "
+                           f"unserialisable value): {e}") from None
 
 
 def gemm_graph() -> dict[str, Any]:
