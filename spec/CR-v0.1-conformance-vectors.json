@@ -78,6 +78,12 @@
     "chain_digest": "sha256:f9559c2de7bb1a2de20286777091ac6e4ee3972e15cf2a0f0fa7e4bdf6a369fd"
   },
   {
+    "name": "chain/closing-2chunk",
+    "certificate": "sha256:a47fc5a69a053b4554f5c0566bc0eb550040da0904e676a23eb32b2d5573faed",
+    "manifest_canonical": "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},\"profile\":\"bposit16-quire256\"},\"chunk\":{\"chain_digest\":\"sha256:0a3e0b1fc1159709cd29aaa82da8bdb105e6400230c6fd69ee7142cd55ee517b\",\"closing\":true,\"index\":2,\"n_chunks\":2,\"prev_certificate\":\"sha256:4ecf4d9915a9bb498edbd1d746fe5a95211b72582910f267773150f8607bfb55\"},\"computation\":{\"id\":\"conformance.chunked\",\"version\":\"1\"},\"cr\":\"0.1.2\",\"digest_alg\":\"sha256\",\"input\":{\"digest\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"n_tensors\":0},\"model\":{\"digest\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"n_tensors\":0},\"output\":{\"digest\":\"sha256:eea7fb056c9f5a6c5f8b9d0530e8a7d425ac1075c7f5ce52bdd2950bbe2a231c\",\"shape\":[2,3]}}",
+    "chain_digest": "sha256:0a3e0b1fc1159709cd29aaa82da8bdb105e6400230c6fd69ee7142cd55ee517b"
+  },
+  {
     "name": "refuse/profile-contradicts-registry",
     "manifest_canonical": "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},\"profile\":\"float64\"},\"computation\":{\"id\":\"conformance.identity\",\"version\":\"1\"},\"cr\":\"0.1\",\"digest_alg\":\"sha256\",\"input\":{\"digest\":\"sha256:ad6d749143dd8efa6c82957b639210e8e79e810c6884016ec6147710a0d07236\",\"n_tensors\":1},\"model\":{\"digest\":\"sha256:b82c1cad15bee4a3e136ce1524d1cd92f7b6ad921afb532a96afd42db59dbc50\",\"n_tensors\":1},\"output\":{\"digest\":\"sha256:eea7fb056c9f5a6c5f8b9d0530e8a7d425ac1075c7f5ce52bdd2950bbe2a231c\",\"shape\":[2,3]}}",
     "certificate": "sha256:3b8c1517fa05f2c34f5e6af47284ad5015eeee9f5a38deedbed7284b73183257",

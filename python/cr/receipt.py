@@ -1036,6 +1036,16 @@ def conformance_vectors() -> list[dict[str, Any]]:
     out.append({"name": "receipt/chunk-0", "certificate": kr.certificate,
                 "manifest_canonical": canonical_bytes(kr.manifest).decode(),
                 "chain_digest": chain_digest_of([kr])})
+    # Multi-chunk closing receipt — pins §12 chain_digest (S6): the digest is taken over
+    # canonical({"certificate": c}) for each CHUNK certificate in index order (chunks 0,1),
+    # NOT over the closing receipt's own certificate, and NOT over raw-concatenated strings.
+    kr1 = build_chunk_receipt(profile="bposit16-quire256", computation="conformance.chunked",
+                              inputs={"x": b}, output=a, chunk_index=1,
+                              prev_certificate=kr.certificate)
+    kclose = build_closing_receipt(chain=[kr, kr1], output_total=a)
+    out.append({"name": "chain/closing-2chunk", "certificate": kclose.certificate,
+                "manifest_canonical": canonical_bytes(kclose.manifest).decode(),
+                "chain_digest": chain_digest_of([kr, kr1])})
 
     # ---- NEGATIVE vectors ----------------------------------------------------------
     # Both soundness bugs found on 2026-08-04 were of the form "accepts what it must

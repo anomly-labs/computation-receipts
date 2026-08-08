@@ -533,6 +533,16 @@ inputs and output, plus one section chaining it to its predecessor:
 - A **closing receipt** terminates the chain: `{"index": n, "prev_certificate": <cert of
   chunk n-1>, "closing": true, "n_chunks": n, "chain_digest": <digest over every certificate
   in order>}`, with the receipt's `output` section binding the digest of the TOTAL output.
+  The **`chain_digest` is computed exactly as** (normative): over a single `alg` hash, for
+  each of the `n` chunk certificates in index order — chunk `0, 1, …, n-1`, and **not** the
+  closing receipt's own certificate — update the hash with `canonical({"certificate": <that
+  chunk's certificate>})`; the result is that hash's digest. That is,
+  `chain_digest = digest( canonical({"certificate": c_0}) ‖ … ‖ canonical({"certificate": c_{n-1}}) )`.
+  "Digest over every certificate in order" alone is under-pinned — concatenating the raw
+  certificate strings, or hashing a JSON array of them, are equally plausible readings that
+  produce different bytes — so the per-entry `canonical({"certificate": …})` framing and the
+  exclusion of the closing receipt's own certificate are fixed here, or two conforming
+  implementations would compute different `chain_digest`s and REJECT each other's chains.
 - Verification: each chunk verifies as an ordinary §6 receipt against the verifier's own
   re-execution of that chunk; the linkage and the closing receipt verify structurally. A
   verifier may check any prefix incrementally as chunks arrive. Sampling composes: §10 can be
