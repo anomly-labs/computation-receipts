@@ -205,8 +205,13 @@ class Receipt:
     def from_json(text: str) -> Receipt:
         try:
             obj = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ReceiptError(f"not valid JSON: {e}") from None
+        # ROBUSTNESS (found 2026-08-08, from_json fuzz): json.loads raises more than
+        # JSONDecodeError on a hostile document — RecursionError on deeply-nested JSON,
+        # and ValueError on an over-long integer literal (Python's int-string limit). A
+        # verifier ingests untrusted text and must answer, not crash: convert every
+        # parse-time failure to a clean ReceiptError. (JSONDecodeError is a ValueError.)
+        except (ValueError, RecursionError) as e:
+            raise ReceiptError(f"not valid or well-bounded JSON: {e}") from None
         if not isinstance(obj, dict):
             raise ReceiptError("receipt must be a JSON object")
         for k in ("manifest", "certificate"):
