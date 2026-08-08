@@ -121,6 +121,16 @@ def canonical_bytes(obj: Any) -> bytes:
 
     `allow_nan=False` matters — Python would otherwise emit bare `NaN`, which is not JSON and
     which other implementations would reject or parse differently.
+
+    INVARIANT (verified 2026-08-08, canonicalisation-injectivity audit): keys are always
+    strings here. json.dumps coerces non-string keys to strings, so in isolation `{1:"a"}`
+    and `{"1":"a"}` would canonicalise to the SAME bytes. That is not a forgery path: receipts
+    travel as JSON (whose keys are strings by definition), the builders use string-literal
+    keys, and any manifest mixing a non-string key with the required string keys makes
+    json.dumps(sort_keys=True) raise TypeError — which check_wellformed turns into a MALFORMED
+    verdict (see the guarded certificate recomputation). No receipt that ACCEPTs can carry a
+    non-string key, so the certificate binding is injective on the accepted set. Do not add a
+    code path that feeds non-string keys here without restoring that guarantee.
     """
     return json.dumps(
         obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
