@@ -91,4 +91,4 @@ unchanged.
 
 ---
 Copyright (c) 2026 Anomly, Inc. Author: Ry Bruscoe. Licensed per LICENSES.md (Apache-2.0 code / CC-BY-4.0 docs).
-Contact: ry@anomly.com · Licensing: Apache-2.0 (code) / CC-BY-4.0 (spec & docs) — see `LICENSES.md`.
+Contact: [anomly.com/contact](https://anomly.com/contact) · Licensing: Apache-2.0 (code) / CC-BY-4.0 (spec & docs) — see `LICENSES.md`.
