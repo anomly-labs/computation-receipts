@@ -41,6 +41,12 @@ fit is specifically the cases where exact reproducibility is worth an arithmetic
 If your workload is best-effort float where nobody will ever dispute the bits, CR is not for you,
 and we would rather tell you that now.
 
+See [`REAL-WORKLOADS.md`](REAL-WORKLOADS.md) for CR run on real workloads in exactly these classes —
+an ill-conditioned HPC reduction (float gives a different, wrong answer at each core count; the quire
+is bit-identical), a distributed-training gradient all-reduce on real Llama-3.2-1B weights (float is
+not bit-reproducible across worker counts; the quire is), and a real pretrained forward pass
+(ACCEPT across execution plans, REJECT on a one-ULP tamper, UNVERIFIABLE in float).
+
 ## Where it sits versus what you already know
 
 | Approach | Cost / trust | CR's difference |
