@@ -143,6 +143,15 @@ The real-workload results above combine that format with exact-quire **arithmeti
 part of this repository. CR's contribution is the verification layer that turns their order-independence
 into a checkable certificate.
 
+**Reproducing every number on this page.** The four pillar results above are produced by one command
+in Anomly's research tree (`python -m spacetime.cr_pillars`), which runs all pillars, prints the
+summary, and **archives each prover's receipt as JSON**. A receipt is what a second machine re-checks:
+when a computation is re-run on different hardware — a different CPU, an FPGA, a Tenstorrent card — the
+verifier recomputes and calls `verify(archived_receipt, its_own_receipt)`, and bit-identical
+exact-quire output yields ACCEPT across the hardware boundary. Those archived certificates are the
+setup for that cross-silicon proof; the arithmetic itself (b-posit / quire) is the research-tree part,
+per the scope above.
+
 If your workload is a large reduction, a distributed training run, or exact-arithmetic inference where
 reproducibility has to be *checkable*, that is exactly the fit — and the most useful thing you can send
 back is either a spec ambiguity you hit implementing it, or a real workload of your own we should try.
