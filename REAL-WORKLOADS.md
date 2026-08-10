@@ -77,14 +77,17 @@ different order (a different chip's tiling).
 **Does the non-reproducibility change the answer, or just the low bits?** At **bf16 — the precision
 production inference actually runs — yes.** On the full real Llama-3.2-1B, computing the final LM-head
 reduction (over the 2048-wide hidden dimension) in several different summation orders — the same
-arithmetic, only the tiling changes — flips **~9% of real next-token argmax decisions** on a natural-
-prose sample (7 of 78 positions, 6 orders), concentrated at genuinely ambiguous positions (top-1/top-2
-margins ~4e-2). The same measurement in fp32 flips **0%** (fp32's error sits below the margins). So a
-bf16 decode is not reproducible across GPU tilings/hardware — a different accelerator can emit a
-different token — and CR's verdict on that decision is **UNVERIFIABLE**. Exact-quire accumulation is
-order-invariant, so those decisions are the same on every re-execution → **ACCEPT**. (Honest scope:
-this certifies *reproducibility* — the same token on any honest hardware — not fp64 *correctness*;
-b-posit16 operands are 16-bit like bf16. The value is a bit-reproducible, re-verifiable decode.)
+arithmetic, only the tiling changes — flips real next-token argmax decisions. Measured across **8
+diverse texts** (narrative, news, code, dialogue, technical, Q&A, list, philosophical), 6 tilings
+each: **aggregate 9.6% of decisions order-sensitive (31 of 324 positions), per-text 3.8%–19.4%
+(median 7.6%)**, concentrated at genuinely ambiguous positions (top-1/top-2 margins ~4e-2). The same
+measurement in fp32 flips **0% on every text** (fp32's error sits below the margins). The rate grows
+with the number of tilings compared and with text ambiguity, but the invariant holds: bf16 decode is
+not reproducible across GPU tilings/hardware — a different accelerator can emit a different token — so
+CR's verdict on that decision is **UNVERIFIABLE**. Exact-quire accumulation is order-invariant, so
+those decisions are the same on every re-execution → **ACCEPT**. (Honest scope: this certifies
+*reproducibility* — the same token on any honest hardware — not fp64 *correctness*; b-posit16 operands
+are 16-bit like bf16. The value is a bit-reproducible, re-verifiable decode.)
 
 ## 4. HPC — an iterative solver (conjugate gradient)
 
