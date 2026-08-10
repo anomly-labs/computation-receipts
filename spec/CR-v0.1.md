@@ -208,6 +208,7 @@ found the first exploitable):
 | `bposit16-quire256` | exact | **yes** | `n=16, es=3, quire_bits=256, frac_bits=96` |
 | `bposit16-quire256-b48` | exact | **yes** | as above **+ `regime_bound=48`** (canonical / silicon-validated) |
 | `bposit16-quire256-b112` | exact | **yes** | as above **+ `regime_bound=112`** (this SDK's current codec) |
+| `bposit8-imma-int32` | exact | **yes** | `n=8, es=2, operand_scale_bits=6, accumulator=int32` |
 | `float64` | rounded | no | `bits=64` |
 | `float32` | rounded | no | `bits=32` |
 
@@ -230,6 +231,22 @@ that can meet the order-independence bar belongs in it, including ones Anomly di
 > or (b) declare the explicit sub-profile (`-b48` / `-b112`) rather than the base. A verifier
 > that cannot tell which convention a receipt used is looking at exactly the ambiguity this
 > registry exists to eliminate — report any receipt that hits it.
+
+> **`bposit8-imma-int32`, added 2026-08-10.** The tensor-core W8A8 path: operands are bposit8
+> codes (n=8, es=2) mapped to int8 fixed-point via `int8 = clamp(floor(value * 2^6), -128, 127)`,
+> and contractions accumulate in 32-bit two's-complement integer arithmetic — the exact
+> accumulation NVIDIA INT8 IMMA tensor cores already perform. Integer addition is associative,
+> so `order_independent: true` holds **unconditionally**, including under mod-2^32 wraparound;
+> the accumulator equals the true fixed-point sum whenever that sum is in int32 range, so
+> provers MUST keep the contraction depth `K * 127^2 < 2^31` (K ≤ 133,000 at worst-case operand
+> magnitudes). The certified output is the int32 accumulator tensor itself; any downstream
+> re-encoding (e.g. elementwise int32 → bposit32) is a separate deterministic step outside this
+> profile. Note the regime-bound caution above does **not** apply here: the ±2 clamp of the
+> fixed-point map means every bposit8 code maps to the same int8 under both the bounded and
+> unbounded regime conventions. Registration demonstration (per the order-independence bar):
+> bit-identical accumulator tensors across NVIDIA Blackwell IMMA, NVIDIA Ampere IMMA, and
+> scalar integer re-execution, on a real Llama-3.2-1B weight sub-block against real token
+> embeddings (2026-08-10 cross-GPU receipts).
 
 > **Registry correction, 2026-08-04.** `bposit16-quire256` previously declared
 > `es=2, frac_bits=128`. Both were wrong about the format the profile names: b-posit16 has a

@@ -80,10 +80,14 @@ function namedDigest(named) {
 // ---- §5 certificate ----------------------------------------------------------------------
 const certificateOf = manifest => digestBytes(canon(manifest));
 
-// ---- §7 the profile registry (the entries the vectors touch) -----------------------------
+// ---- §7 the profile registry (the entries the vectors touch, plus bposit8-imma-int32) ----
 const PROFILES = {
   'bposit16-quire256': { accumulation: 'exact', order_independent: true,
     params: { es: 3, frac_bits: 96, n: 16, quire_bits: 256 } },
+  // Added 2026-08-10: the tensor-core W8A8 path — int8 fixed-point operands from bposit8
+  // codes (int8 = clamp(floor(value*2^6), -128, 127)), exact int32 accumulation (IMMA).
+  'bposit8-imma-int32': { accumulation: 'exact', order_independent: true,
+    params: { accumulator: 'int32', es: 2, n: 8, operand_scale_bits: 6 } },
   float64: { accumulation: 'rounded', order_independent: false, params: { bits: 64 } },
   float32: { accumulation: 'rounded', order_independent: false, params: { bits: 32 } },
 };

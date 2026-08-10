@@ -95,6 +95,22 @@ PROFILES: dict[str, dict[str, Any]] = {
         "params": {"n": 16, "es": 3, "quire_bits": 256, "frac_bits": 96,
                    "regime_bound": 112},
     },
+    # ADDED 2026-08-10: the tensor-core W8A8 path. Operands are bposit8 codes (n=8, es=2)
+    # mapped to int8 fixed-point via int8 = clamp(floor(value * 2^6), -128, 127);
+    # contractions accumulate in 32-bit two's-complement integer arithmetic (e.g. NVIDIA
+    # INT8 IMMA with 32-bit accumulate). Integer addition is associative, so
+    # order-independence holds UNCONDITIONALLY (including under mod-2^32 wraparound); the
+    # accumulator equals the true fixed-point sum whenever that sum is within int32 range —
+    # provers MUST keep K * 127^2 < 2^31 (contraction depth K <= 133,000 at worst-case
+    # magnitudes). The certified output is the int32 accumulator tensor itself.
+    # Order-independence demonstration (registration bar, §7): bit-identical accumulators
+    # across NVIDIA Blackwell IMMA, NVIDIA Ampere IMMA, and scalar integer re-execution on
+    # a real Llama-3.2-1B weight sub-block (2026-08-10 cross-GPU receipts).
+    "bposit8-imma-int32": {
+        "accumulation": "exact",
+        "order_independent": True,
+        "params": {"n": 8, "es": 2, "operand_scale_bits": 6, "accumulator": "int32"},
+    },
     "float64": {
         "accumulation": "rounded",
         "order_independent": False,
