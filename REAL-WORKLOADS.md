@@ -47,6 +47,21 @@ all-reduce performs), batch 256, summed as 8 workers vs 64 workers.
 
 Bit-reproducible distributed training, checkably.
 
+**Multi-step: the divergence compounds.** One step's last-bit difference is not the whole story —
+it feeds back through the weights (a changed weight changes the next forward, hence the next
+gradient), so over a training trajectory the two worker-count runs drift apart and keep drifting.
+Ran a real 40-step full-batch SGD of `y = X·W1` on that same Llama-3.2-1B weight (loss genuinely
+descends, `0.01001 → 0.00724`):
+
+| | step 1 | step 40 | verdict on final weights |
+|---|---|---|---|
+| float32, `max\|Δweight\|` between 8- and 64-worker runs | `1.40e-9` | `5.12e-9` (grows) | **UNVERIFIABLE** — two worker counts, two different models |
+| exact quire | `0` | `0` (bit-identical every step) | **ACCEPT** — the run re-verifies at any worker count |
+
+That compounding is why a long, expensive training run is not bit-reproducible in floating point;
+exact accumulation removes it at the source. (Honest scope as above: real weight values, a tractable
+emulated-quire sub-block — a witness of the accumulation property, not a throughput benchmark.)
+
 ## 3. Inference — a real pretrained forward pass
 
 **Ran:** a **Llama-3.2-1B layer-0** attention+MLP sub-block on its real trained weights, under exact
