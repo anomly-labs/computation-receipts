@@ -119,9 +119,10 @@ The question after "does it work" is "what does it cost me." There are two separ
 conflating them is the usual sleight of hand:
 
 **1. Compute cost** — running the workload in exact b-posit/quire arithmetic instead of float.
-Measured on this CPU, one exact-quire transformer forward costs **~16–22× a float forward** across
-model depth (1→8 blocks). But that ratio is a *software-emulation* artefact: the 256-bit quire is
-emulated in NumPy here. On native b-posit silicon the quire lives in the MAC datapath — it
+Measured on this CPU, one exact-quire transformer forward costs **roughly 15–20× a float forward**
+(up to ~22× at the deepest stack) across model depth (1→8 blocks) — and the exact multiplier is
+wall-clock and varies run to run, so treat it as an order-of-magnitude figure, not a constant. That ratio is a *software-emulation*
+artefact: the 256-bit quire is emulated in NumPy here. On native b-posit silicon the quire lives in the MAC datapath — it
 accumulates every cycle, so exact accumulation is inherent, not an add-on — and b-posit/quire GEMM
 has run **bit-exact on real FPGA and Tenstorrent hardware at hardware throughput**. The number to
 quote is the silicon cost (≈ native); the CPU ratio is the emulator's tax, not the idea's.
