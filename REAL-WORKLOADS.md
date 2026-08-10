@@ -94,7 +94,10 @@ reduction order (a shared fp64 backbone isolates the effect) forks the output in
 on all three prompts tried — the sequences share a prefix, then a single order-induced token flip
 changes the context and they diverge into different continuations. So the non-reproducibility does not
 wash out at the sequence level: same model, same prompt, a different tiling, a different story — and a
-generation nobody can certify. Exact-quire accumulation removes it at the source.
+generation nobody can certify. Nor is this an artifact of the isolation: repeating the experiment with
+*every* linear in the model (113 of them) computing its reduction in a per-run order, bf16 throughout,
+also forks all three prompts (two within 40 generated tokens, the third at token 44). Exact-quire
+accumulation removes it at the source.
 
 ## 4. HPC — an iterative solver (conjugate gradient)
 
