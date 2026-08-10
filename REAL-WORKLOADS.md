@@ -74,6 +74,18 @@ different order (a different chip's tiling).
 - The same block in float64 → the two plans disagree → **UNVERIFIABLE** (agreement would be luck,
   disagreement is expected — CR never sells a coincidence as a proof).
 
+**Does the non-reproducibility change the answer, or just the low bits?** At **bf16 — the precision
+production inference actually runs — yes.** On the full real Llama-3.2-1B, computing the final LM-head
+reduction (over the 2048-wide hidden dimension) in several different summation orders — the same
+arithmetic, only the tiling changes — flips **~9% of real next-token argmax decisions** on a natural-
+prose sample (7 of 78 positions, 6 orders), concentrated at genuinely ambiguous positions (top-1/top-2
+margins ~4e-2). The same measurement in fp32 flips **0%** (fp32's error sits below the margins). So a
+bf16 decode is not reproducible across GPU tilings/hardware — a different accelerator can emit a
+different token — and CR's verdict on that decision is **UNVERIFIABLE**. Exact-quire accumulation is
+order-invariant, so those decisions are the same on every re-execution → **ACCEPT**. (Honest scope:
+this certifies *reproducibility* — the same token on any honest hardware — not fp64 *correctness*;
+b-posit16 operands are 16-bit like bf16. The value is a bit-reproducible, re-verifiable decode.)
+
 ## 4. HPC — an iterative solver (conjugate gradient)
 
 Conjugate gradient — the workhorse iterative solver for large sparse SPD systems in CFD, FEM and
