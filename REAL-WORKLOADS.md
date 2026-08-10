@@ -89,6 +89,13 @@ those decisions are the same on every re-execution → **ACCEPT**. (Honest scope
 *reproducibility* — the same token on any honest hardware — not fp64 *correctness*; b-posit16 operands
 are 16-bit like bf16. The value is a bit-reproducible, re-verifiable decode.)
 
+**And the flips compound.** Greedy-decoding the same prompt while varying *only* the bf16 LM-head
+reduction order (a shared fp64 backbone isolates the effect) forks the output into **different text**
+on all three prompts tried — the sequences share a prefix, then a single order-induced token flip
+changes the context and they diverge into different continuations. So the non-reproducibility does not
+wash out at the sequence level: same model, same prompt, a different tiling, a different story — and a
+generation nobody can certify. Exact-quire accumulation removes it at the source.
+
 ## 4. HPC — an iterative solver (conjugate gradient)
 
 Conjugate gradient — the workhorse iterative solver for large sparse SPD systems in CFD, FEM and
