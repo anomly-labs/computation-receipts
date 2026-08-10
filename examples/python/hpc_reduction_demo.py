@@ -174,7 +174,9 @@ def main() -> int:
     print("  family, whose implementation lives in Anomly's research tree (see ../../REAL-WORKLOADS.md")
     print("  for that half run on real Llama weights and reductions). A generic public")
     print("  'exact-accumulation' profile would let this pure-Python demo close the loop to ACCEPT;")
-    print("  adding one to the spec/registry is a deliberate decision, not taken here.")
+    print("  a review-ready proposal (a verified, no-spec-change option) is in")
+    print("  docs/proposals/exact-accumulation-profile.md. Adding it is a deliberate decision, not")
+    print("  taken here.")
     print(line)
     return 0
 

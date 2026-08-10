@@ -118,8 +118,11 @@ And you can run the **HPC reduction above yourself**, publicly, with numpy + std
 accumulation is order-independent. The one thing it stops short of is emitting an *ACCEPTing* receipt:
 that needs the receipt to name an order-independent arithmetic profile the verifier can assess, and
 the registered ones today are the b-posit / 256-bit-quire family (the arithmetic below). A generic
-public "exact-accumulation" profile would let a pure-Python evaluator close that loop — a deliberate
-spec/registry decision, flagged in the demo, not taken unilaterally.
+public "exact-accumulation" profile would let a pure-Python evaluator close that loop to a real
+ACCEPT — see the review-ready proposal in
+[`docs/proposals/exact-accumulation-profile.md`](docs/proposals/exact-accumulation-profile.md)
+(a verified, no-spec-change option is recommended there; the decision is deliberate, not taken
+unilaterally).
 The real-workload results above combine that format with exact-quire **arithmetic** — b-posit and the
 256-bit quire, which are published prior work (Gustafson & Yonemoto 2017; Posit Standard 2022), not
 part of this repository. CR's contribution is the verification layer that turns their order-independence
