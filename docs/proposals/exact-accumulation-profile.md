@@ -167,6 +167,29 @@ public demo with an `exact-real-f64` prover/verifier pair (Fraction accumulate �
 ACCEPT across two rank orders and REJECT on a cheated output, and (optionally) add one positive
 conformance vector.
 
+## POC — verified end to end (registry untouched)
+
+Option A was run end to end in Anomly's research tree, with the profile registered **only at
+runtime** (open-cr's `python/cr/receipt.py` was not modified), on the same ill-conditioned reduction
+as the public demo. It produces exactly the verdicts this proposal claims:
+
+```
+exact-real-f64 — accumulate exactly in ℚ, round once to binary64:
+     64-rank order   : +1.250000
+     1024-rank order : +1.250000
+     bit-identical across rank orders? True
+     CR verify() -> ACCEPT          <- the ACCEPT the public demo cannot reach today
+
+cheated output over identical inputs (claims a wrong total):
+     CR verify() -> REJECT          <- an order-independent profile catches a wrong number
+
+naive float64, for contrast:
+     CR verify() -> UNVERIFIABLE    <- order-dependent, no verdict possible
+```
+
+So the only step between the public demo and a real ACCEPT (and a real REJECT of a wrong result) is
+this one registry entry. The change is mechanical; the behaviour above is already demonstrated.
+
 ## Ry decision
 
 - **Option A (`exact-real-f64`, no spec change): yes / no** — ______
