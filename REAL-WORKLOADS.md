@@ -75,6 +75,37 @@ different order (a different chip's tiling).
   what a receipt certifies. When operands fit the format it also equals the true value; that is a
   bonus, not the claim.
 
+## What it costs — the honest verification tax
+
+The question after "does it work" is "what does it cost me." There are two separable costs, and
+conflating them is the usual sleight of hand:
+
+**1. Compute cost** — running the workload in exact b-posit/quire arithmetic instead of float.
+Measured on this CPU, one exact-quire transformer forward costs **~16–22× a float forward** across
+model depth (1→8 blocks). But that ratio is a *software-emulation* artefact: the 256-bit quire is
+emulated in NumPy here. On native b-posit silicon the quire lives in the MAC datapath — it
+accumulates every cycle, so exact accumulation is inherent, not an add-on — and b-posit/quire GEMM
+has run **bit-exact on real FPGA and Tenstorrent hardware at hardware throughput**. The number to
+quote is the silicon cost (≈ native); the CPU ratio is the emulator's tax, not the idea's.
+
+**2. Verification cost** — the extra work to *check* a result: re-execute and compare a 32-byte
+digest. That is ~1 extra forward pass plus a hash. This is the cost that actually distinguishes CR,
+and it is small by construction:
+
+| approach | verification cost | trust assumption |
+|---|---|---|
+| **CR** (re-execute + compare digest) | **~1× forward pass + a hash** | **none — the math is the root of trust** |
+| Zero-knowledge ML | ~100–1000×+ prover overhead | none, but you pay the prover tax |
+| Trusted-hardware enclave | ~1× (near-native) | trust the chip vendor's root of trust |
+| Deterministic replay / pinned kernels | ~1× | none, but you surrender hardware heterogeneity |
+
+A receipt is a **checksum/ECC/TLS-style tax**: a bounded, defined overhead you pay *only when you
+choose to verify*, to turn a result into one anybody can re-check — with no prover and no trusted
+machine. CR buys the enclave's ~1× verification cost *without* the enclave's trust assumption, and
+ZKML's zero-trust *without* ZKML's prover tax. The price of that trade is that the compute must be
+exact-quire (more than float in emulation, ≈ native on b-posit silicon) and float workloads stay
+UNVERIFIABLE — which is exactly the honest scope above.
+
 ## What you can reproduce yourself — with no arithmetic and no special hardware
 
 The **format** is the part that needs nothing but Python: the 17 conformance vectors, the reference
