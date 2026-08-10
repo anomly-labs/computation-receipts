@@ -111,6 +111,15 @@ UNVERIFIABLE — which is exactly the honest scope above.
 The **format** is the part that needs nothing but Python: the 17 conformance vectors, the reference
 verifier, and a from-scratch second implementation that reproduces every vector (see
 [`README.md`](README.md) and [`EVALUATORS.md`](EVALUATORS.md), "verify every claim in an afternoon").
+
+And you can run the **HPC reduction above yourself**, publicly, with numpy + stdlib only —
+`python3 examples/python/hpc_reduction_demo.py`. It reproduces float's honest UNVERIFIABLE verdict
+(whether the rank orders disagree, agree by luck, or a cheated total is claimed) and shows exact
+accumulation is order-independent. The one thing it stops short of is emitting an *ACCEPTing* receipt:
+that needs the receipt to name an order-independent arithmetic profile the verifier can assess, and
+the registered ones today are the b-posit / 256-bit-quire family (the arithmetic below). A generic
+public "exact-accumulation" profile would let a pure-Python evaluator close that loop — a deliberate
+spec/registry decision, flagged in the demo, not taken unilaterally.
 The real-workload results above combine that format with exact-quire **arithmetic** — b-posit and the
 256-bit quire, which are published prior work (Gustafson & Yonemoto 2017; Posit Standard 2022), not
 part of this repository. CR's contribution is the verification layer that turns their order-independence

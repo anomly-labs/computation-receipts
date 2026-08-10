@@ -44,6 +44,22 @@ Requires Python 3.10+ and numpy. No other dependencies, no account, no hardware.
 The C emitter (`c/cr_receipt.h`) is a single self-contained header — `#include` it and
 compile with any C11 compiler; it needs only libc.
 
+## Run a real workload yourself
+
+Beyond the tiny conformance vectors, a self-contained demo runs a real, ill-conditioned HPC
+reduction (the `MPI_Allreduce` reproducibility problem) through the verifier — numpy + stdlib
+only, nothing from a private tree:
+
+```bash
+python3 examples/python/hpc_reduction_demo.py
+```
+
+It shows float's honest CR verdict — UNVERIFIABLE whether the two rank orders **disagree**,
+**agree** (a coincidence CR refuses to certify), or a **cheated output** is claimed (which float
+cannot flag) — and then that exact accumulation is order-independent, the property an ACCEPT needs.
+See [`REAL-WORKLOADS.md`](REAL-WORKLOADS.md) for the exact-arithmetic half (real Llama weights and
+reductions) that reaches ACCEPT/REJECT.
+
 ## What is in the box
 
 | path | what it is |
@@ -54,6 +70,7 @@ compile with any C11 compiler; it needs only libc.
 | `python/cr/protocol.py` | the verifier side of the commit → challenge → reveal protocol (§10) |
 | `python/cr/beacon.py` | public-randomness challenges (drand): pin the first round after the commitment; audit a transcript against the live beacon forever |
 | `c/cr_receipt.h` | dependency-free C emitter, written against the spec rather than the reference source; produces byte-identical certificates (differential-fuzzed vs the Python reference, 4,000/4,000 across full/sampled/chunked) |
+| `examples/python/hpc_reduction_demo.py` | self-contained, publicly runnable: a real ill-conditioned HPC reduction through the verifier (numpy + stdlib only) — the format doing its job on a real workload |
 | `docs/how-computation-receipts-work.pdf` | a 3-page plain-language explainer |
 | `IMPLEMENTERS.md` | the third-party implementer's guide: order of attack + every known pitfall |
 
