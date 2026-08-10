@@ -2,15 +2,15 @@
 # Computation Receipts on real workloads — HPC, training, inference
 
 The 17 published conformance vectors pin the *format*; they are deliberately tiny. This page is the
-format doing its actual job on the three workload classes where cross-machine bit-for-bit
-reproducibility is a real, funded, unsolved problem — and where a receipt therefore buys something
-float-on-a-GPU cannot. Each result below was run on real data (real pretrained weights, real
-ill-conditioned reductions), and each states its honest scope.
+format doing its actual job on the workload classes where cross-machine bit-for-bit reproducibility
+is a real, funded, unsolved problem — HPC reductions, distributed training, inference, and iterative
+solvers — where a receipt therefore buys something float-on-a-GPU cannot. Each result below was run
+on real data (real pretrained weights, real ill-conditioned systems), and each states its honest scope.
 
-The pattern is the same in all three: a **prover** computes under one execution decomposition (one
-tiling, one rank count, one worker count) and emits a CR receipt; a **verifier** re-executes under a
-*different* decomposition — what a different machine would do — and the same reference verifier that
-grades the 17 vectors returns the verdict.
+The pattern is the same throughout: a **prover** computes under one execution decomposition (one
+tiling, one rank count, one worker/core count) and emits a CR receipt; a **verifier** re-executes
+under a *different* decomposition — what a different machine would do — and the same reference verifier
+that grades the 17 vectors returns the verdict.
 
 ## 1. HPC — the reduction / `MPI_Allreduce` problem
 
@@ -73,6 +73,29 @@ different order (a different chip's tiling).
   different model").
 - The same block in float64 → the two plans disagree → **UNVERIFIABLE** (agreement would be luck,
   disagreement is expected — CR never sells a coincidence as a proof).
+
+## 4. HPC — an iterative solver (conjugate gradient)
+
+Conjugate gradient — the workhorse iterative solver for large sparse SPD systems in CFD, FEM and
+PDE-constrained problems — computes two **dot products** per iteration (`α = rᵀr / pᵀAp`,
+`β = r_newᵀr_new / rᵀr`). A dot product's floating-point value depends on how its vector is
+partitioned across cores, so the *same* solve on a different core count takes a slightly different α
+at step 1, a different search direction at step 2, and the trajectories diverge — frequently reaching
+the tolerance in a **different number of iterations**. This is a documented HPC reproducibility pain
+(the reproducible-BLAS / reproducible-CG line of work exists for it).
+
+**Ran:** CG on a real ill-conditioned SPD system (n = 64, condition number ~300), under a 64-core vs
+a 1024-core partition order.
+
+| | iterations to tol | trajectory `max‖x₆₄ − x₁₀₂₄‖` | verdict on final `x` |
+|---|---|---|---|
+| float32 | **50 vs 51** (different count) | `1.1` (final `x` differs by `4.9e-3`) | **UNVERIFIABLE** |
+| exact quire | 57 vs 57 | `0` (bit-identical every iteration) | **ACCEPT** |
+
+A corrupted `b` shard → **REJECT**. (Honest scope: operands are b-posit16, so the accuracy floor is
+that precision — the true residual settles near `6e-3`; the receipt certifies the **reproducibility**
+of the trajectory across core counts, not tighter accuracy. Emulated-quire witness, not a throughput
+benchmark.)
 
 ## Honest scope (read this)
 
