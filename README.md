@@ -73,6 +73,7 @@ reductions) that reaches ACCEPT/REJECT.
 | `examples/python/hpc_reduction_demo.py` | self-contained, publicly runnable: a real ill-conditioned HPC reduction through the verifier (numpy + stdlib only) — the format doing its job on a real workload |
 | `docs/how-computation-receipts-work.pdf` | a 3-page plain-language explainer |
 | `IMPLEMENTERS.md` | the third-party implementer's guide: order of attack + every known pitfall |
+| `INTEGRATION.md` | the deployment guide: the minimal emit + verify diff to wrap CR around a real HPC / training / inference pipeline |
 
 ## What CR deliberately does not do
 

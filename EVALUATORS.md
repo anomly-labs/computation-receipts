@@ -97,5 +97,5 @@ format, the canonical form, the conformance vectors, and the refusal rules.
 
 ---
 Start here: [`README.md`](README.md) · Spec: [`spec/CR-v0.1.md`](spec/CR-v0.1.md) · Implementing:
-[`IMPLEMENTERS.md`](IMPLEMENTERS.md) · Maturity & open questions: [`STATUS.md`](STATUS.md) ·
-Contact: [anomly.com/contact](https://anomly.com/contact)
+[`IMPLEMENTERS.md`](IMPLEMENTERS.md) · Integrating: [`INTEGRATION.md`](INTEGRATION.md) · Maturity &
+open questions: [`STATUS.md`](STATUS.md) · Contact: [anomly.com/contact](https://anomly.com/contact)
