@@ -36,6 +36,19 @@ currently pass — run them yourself:
 cd python && python3 run_checks.py
 ```
 
+## Recent (2026-08-10/11)
+
+- **Real-workload demonstrations** ([REAL-WORKLOADS.md](REAL-WORKLOADS.md)): HPC reduction,
+  distributed-training all-reduce, real-Llama inference (incl. measured bf16 decision flips and
+  generation forks), a CG solver — and **§5: one certificate re-verified across different
+  silicon** (RTX 5090 / RTX 3090 / CPU bit-identical; cuBLAS FP32 deterministic per-GPU yet
+  different across the two architectures).
+- **A second exact profile registered**: `bposit8-imma-int32` (spec §7) — the INT8-tensor-core
+  W8A8 path, with the cross-GPU receipts as its order-independence demonstration. The open
+  registry is no longer hypothetical.
+- **`examples/python/cross_gpu_receipt_demo.py`**: pair it with the mosyne-bposit 60-second GPU
+  demo to run the receipt flow on your own hardware's codes.
+
 ## What is deliberately still open
 
 - **The b-posit16 regime bound (±48 vs ±112).** Two conventions exist; they agree inside
