@@ -122,6 +122,31 @@ that precision — the true residual settles near `6e-3`; the receipt certifies 
 of the trajectory across core counts, not tighter accuracy. Emulated-quire witness, not a throughput
 benchmark.)
 
+## 5. Cross-hardware — one certificate, three compute substrates
+
+The pillars above vary the execution *plan* on one CPU. This one varies the *silicon*. Two
+demonstrations (2026-08-11):
+
+**An exact reduction.** One 65,536-element sum spanning six decades of magnitude, computed
+independently on an NVIDIA RTX 5090 (Blackwell), an RTX 3090 (Ampere), and a pure-Python CPU
+reference: the 256-bit quire state is bit-identical on all three, so every pairwise `verify()`
+returns **ACCEPT** — one certificate, re-verified across two GPU generations and two independent
+implementations. The float control: IEEE FP32 `atomicAdd` on the same inputs produced 10 distinct
+bit patterns in 10 runs across the two GPUs → **UNVERIFIABLE**.
+
+**A W8A8 tensor-core matmul on real model data** (profile `bposit8-imma-int32`, registry §7 — these
+receipts are its registration demonstration). A sub-block of Llama-3.2-1B's layer-0 `gate_proj`
+weight against the token embeddings of a real sentence, quantised to bposit8 and run through the
+*unmodified* INT8 IMMA tensor cores (exact int32 accumulation): the accumulator tensor is
+bit-identical on Blackwell IMMA, Ampere IMMA, and scalar CPU integer arithmetic → all pairwise
+**ACCEPT**; a 1-bit tamper → **REJECT**. And the sharpest control yet: cuBLASLt FP32 SGEMM over the
+same operands is run-to-run *deterministic on each GPU individually* — and returns different bits
+on the two architectures → **UNVERIFIABLE**. Determinism on one machine is not reproducibility
+across machines; a receipt certifies the latter.
+
+Honest scope: cross-generation and cross-implementation, one GPU vendor so far; cross-vendor
+re-verification (Tenstorrent, FPGA) is the standing next step.
+
 ## Honest scope (read this)
 
 - **Real values, tractable width.** The 256-bit quire is emulated in Python here, which is too slow
@@ -129,10 +154,10 @@ benchmark.)
   matrices, not the full SwiGLU/RoPE forward. The reproducibility property is a property of the
   **accumulation**, so a sub-block is a faithful witness — but these are witnesses, not throughput
   benchmarks.
-- **Cross-implementation, not yet cross-silicon here.** The decompositions above are different
-  execution *plans* on one CPU, standing in for different machines. Re-verification on genuinely
-  different silicon is the stronger proof; Anomly has run b-posit/quire GEMM bit-exact on real FPGA
-  and Tenstorrent hardware, and that is the direction this composes toward.
+- **Cross-silicon is now partially demonstrated.** Pillars 1–4 vary execution *plans* on one CPU;
+  section 5 varies the silicon itself (two NVIDIA GPU generations + CPU, bit-identical, one
+  certificate). Still one GPU vendor: cross-vendor re-verification (Tenstorrent, FPGA — where
+  b-posit/quire GEMM has already run bit-exact) is the stronger proof this composes toward.
 - **The certifiable property is order-independence, not infinite precision.** The quire sums the
   b-posit-rounded operands *exactly and identically across decompositions*, for any inputs — that is
   what a receipt certifies. When operands fit the format it also equals the true value; that is a
