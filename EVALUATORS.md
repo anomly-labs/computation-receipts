@@ -44,8 +44,12 @@ and we would rather tell you that now.
 See [`REAL-WORKLOADS.md`](REAL-WORKLOADS.md) for CR run on real workloads in exactly these classes —
 an ill-conditioned HPC reduction (float gives a different, wrong answer at each core count; the quire
 is bit-identical), a distributed-training gradient all-reduce on real Llama-3.2-1B weights (float is
-not bit-reproducible across worker counts; the quire is), and a real pretrained forward pass
-(ACCEPT across execution plans, REJECT on a one-ULP tamper, UNVERIFIABLE in float).
+not bit-reproducible across worker counts; the quire is), a real pretrained forward pass
+(ACCEPT across execution plans, REJECT on a one-ULP tamper, UNVERIFIABLE in float), and — the
+newest — one certificate re-verified across *different silicon*: the same exact computation
+bit-identical on an RTX 5090 (Blackwell), an RTX 3090 (Ampere), and a CPU re-execution, while
+cuBLAS FP32 on the same inputs is deterministic on each GPU yet returns different bits on the
+two architectures (REAL-WORKLOADS §5).
 
 ## Where it sits versus what you already know
 
