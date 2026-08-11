@@ -145,7 +145,9 @@ on the two architectures → **UNVERIFIABLE**. Determinism on one machine is not
 across machines; a receipt certifies the latter.
 
 Honest scope: cross-generation and cross-implementation, one GPU vendor so far; cross-vendor
-re-verification (Tenstorrent, FPGA) is the standing next step.
+re-verification (Tenstorrent, FPGA) is the standing next step. To run the receipt flow on YOUR
+hardware's codes: `examples/python/cross_gpu_receipt_demo.py` (pairs with the mosyne-bposit
+60-second GPU demo).
 
 ## Honest scope (read this)
 
