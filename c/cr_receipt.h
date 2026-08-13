@@ -463,6 +463,42 @@ static void cr_build_chunk_manifest(char *buf, size_t buflen,
     snprintf(certificate, 72, "sha256:%s", hex);
 }
 
+/* Build the closing receipt that terminates a chain (spec §12): a full receipt over the
+ * TOTAL output plus a closing chunk section binding the chunk count and the chain digest.
+ * Mirrors the reference build_closing_receipt for a chain whose chunks carry model=None
+ * (model/input here are the empty collection, as build_closing_receipt emits). Chunk-section
+ * key order (sorted): chain_digest < closing < index < n_chunks < prev_certificate. */
+static void cr_build_closing_manifest(char *buf, size_t buflen,
+                                      const char *computation_id,
+                                      const char *computation_version,
+                                      const char *output_digest, int output_len,
+                                      int n_chunks, const char *prev_certificate,
+                                      const char *chain_digest,
+                                      char certificate[72])
+{
+    char id_e[CR_JSON_ESC_MAX], ver_e[CR_JSON_ESC_MAX];
+    cr__json_escape(computation_id, id_e, sizeof id_e);
+    cr__json_escape(computation_version, ver_e, sizeof ver_e);
+    int n = snprintf(buf, buflen,
+        "{\"arithmetic\":{\"accumulation\":\"exact\",\"order_independent\":true,"
+        "\"params\":{\"es\":3,\"frac_bits\":96,\"n\":16,\"quire_bits\":256},"
+        "\"profile\":\"bposit16-quire256\"},"
+        "\"chunk\":{\"chain_digest\":\"%s\",\"closing\":true,\"index\":%d,"
+        "\"n_chunks\":%d,\"prev_certificate\":\"%s\"},"
+        "\"computation\":{\"id\":\"%s\",\"version\":\"%s\"},"
+        "\"cr\":\"0.1.2\",\"digest_alg\":\"sha256\","
+        "\"input\":{\"digest\":\"" CR_EMPTY_COLLECTION_DIGEST "\",\"n_tensors\":0},"
+        "\"model\":{\"digest\":\"" CR_EMPTY_COLLECTION_DIGEST "\",\"n_tensors\":0},"
+        "\"output\":{\"digest\":\"%s\",\"shape\":[%d]}}",
+        chain_digest, n_chunks, n_chunks, prev_certificate, id_e, ver_e,
+        output_digest, output_len);
+
+    sha256_t s; sha256_init(&s);
+    sha256_update(&s, buf, cr__wrote(n, buflen));
+    char hex[65]; sha256_hex(&s, hex);
+    snprintf(certificate, 72, "sha256:%s", hex);
+}
+
 /* chain digest = SHA256 over canonical({"certificate":..}) for each link in order */
 static void cr_chain_digest(const char (*certs)[72], int count, char out[72])
 {
