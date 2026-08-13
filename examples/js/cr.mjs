@@ -122,6 +122,17 @@ function malformedReason(m) {
   if (m.cr === '0.1' && 'chunk' in m) return 'v0.1 receipt carries a chunk section';
   if (m.cr === '0.1.1' && 'chunk' in m) return 'sampled receipt carries a chunk section';
   if (m.cr === '0.1.2' && 'sample' in m) return 'chunked receipt carries a sample section';
+  if (m.cr === '0.1.2') {                                              // §12 chunk-section shape
+    const c = m.chunk;
+    if (typeof c !== 'object' || c === null) return 'missing chunk section';
+    if (!(Number.isInteger(c.index) && c.index >= 0)) return 'chunk index invalid';
+    if (typeof c.prev_certificate !== 'string') return 'chunk missing prev_certificate';
+    if (c.index === 0 && c.prev_certificate !== '') return 'chunk 0 must have empty prev_certificate';
+    if (c.index > 0 && !c.prev_certificate) return `chunk ${c.index} has no prev_certificate`;
+    if (typeof c.closing !== 'boolean') return 'chunk missing closing flag';
+    if (c.closing && !(Number.isInteger(c.n_chunks) && c.n_chunks === c.index && typeof c.chain_digest === 'string'))
+      return 'closing receipt needs n_chunks == index and a chain_digest';
+  }
   if (m.cr === '0.1.1') {
     const s = m.sample;
     if (typeof s !== 'object' || s === null) return 'missing sample section';
@@ -290,7 +301,99 @@ function verifyReceipt(receipt) {
   return { status: 'WELL-FORMED', reason: 'self-consistent and order-independent; supply an independent re-execution to obtain ACCEPT/REJECT' };
 }
 
-if (process.argv[2] === 'verify') {
+// ---- §12 chain verification (the verdict half for receipt chains) -------------------------
+// verifyChain and its per-chunk verifyPair mirror the reference verify_chain / verify: an
+// INDEPENDENT second implementation of the most involved verdict path, so a chain artifact can
+// be re-verified in a different language. Verdict strings and REJECT/MALFORMED causes match the
+// reference (python/cr/receipt.py) so the two implementations agree on every bundle.
+
+function wellformedCert(r) {                    // null if well-formed AND certificate matches
+  if (typeof r !== 'object' || r === null || !('manifest' in r)) return 'receipt must have a manifest';
+  const bad = malformedReason(r.manifest);
+  if (bad !== null) return bad;
+  let cert;
+  try { cert = certificateOf(r.manifest); } catch (e) { return 'not canonicalisable: ' + e.message; }
+  if (typeof r.certificate !== 'string' || r.certificate !== cert)
+    return 'certificate does not match manifest (tampered or miscomputed)';
+  return null;
+}
+
+// Mirror of verify(a, b): compare a claimed receipt against an independent re-execution.
+function verifyPair(a, b) {
+  for (const r of [a, b]) { const bad = wellformedCert(r); if (bad !== null) return { status: 'MALFORMED', reason: bad }; }
+  for (const k of ['model', 'input', 'computation'])
+    if (canon(a.manifest[k]) !== canon(b.manifest[k])) return { status: 'REJECT', reason: `re-execution used a different ${k}` };
+  if (a.manifest.arithmetic.profile !== b.manifest.arithmetic.profile) return { status: 'REJECT', reason: 're-execution used a different arithmetic profile' };
+  if (!(a.manifest.arithmetic.profile in PROFILES)) return { status: 'UNVERIFIABLE', reason: 'profile is not in this verifier\'s registry' };
+  if (!a.manifest.arithmetic.order_independent) return { status: 'UNVERIFIABLE', reason: 'arithmetic is order-dependent' };
+  if (a.manifest.output.digest !== b.manifest.output.digest) return { status: 'REJECT', reason: 'output digest differs under order-independent arithmetic' };
+  if (a.certificate !== b.certificate) return { status: 'REJECT', reason: 'certificate differs' };
+  return { status: 'ACCEPT', reason: 're-execution reproduced the certificate' };
+}
+
+function isClosing(r) {
+  const c = r && typeof r.manifest === 'object' && r.manifest !== null ? r.manifest.chunk : null;
+  return c && typeof c === 'object' && c.closing === true;
+}
+
+// Mirror of verify_chain(claimed, recomputed, allow_open).
+function verifyChain(claimed, recomputed = null, allowOpen = false) {
+  if (!Array.isArray(claimed) || claimed.length === 0) return { status: 'MALFORMED', reason: 'empty chain' };
+  let body = claimed.slice(), closing = null;
+  if (isClosing(body[body.length - 1])) { closing = body[body.length - 1]; body = body.slice(0, -1); }
+  if (body.length === 0) return { status: 'MALFORMED', reason: 'chain has a closing receipt but no chunks' };
+  for (let k = 0; k < body.length; k++) {
+    const bad = wellformedCert(body[k]);
+    if (bad !== null) return { status: 'MALFORMED', reason: `chunk ${k}: ${bad}` };
+    const c = body[k].manifest.chunk;
+    if (typeof c !== 'object' || c === null || c.closing) return { status: 'MALFORMED', reason: `chunk ${k}: not a chunk receipt` };
+    if (c.index !== k) return { status: 'REJECT', reason: `chunk order broken: position ${k} carries index ${c.index}` };
+    const wantPrev = k === 0 ? '' : body[k - 1].certificate;
+    if (c.prev_certificate !== wantPrev) return { status: 'REJECT', reason: `chunk ${k}: prev_certificate does not match chunk ${k - 1} (reordered, dropped or foreign chunk)` };
+  }
+  if (closing !== null) {
+    const bad = wellformedCert(closing);
+    if (bad !== null) return { status: 'MALFORMED', reason: `closing receipt: ${bad}` };
+    const cc = closing.manifest.chunk;
+    if (cc.n_chunks !== body.length) return { status: 'REJECT', reason: `closing receipt claims ${cc.n_chunks} chunks, chain has ${body.length}` };
+    if (cc.prev_certificate !== body[body.length - 1].certificate) return { status: 'REJECT', reason: 'closing receipt does not chain from the last chunk' };
+    if (cc.chain_digest !== chainDigest(body.map(r => r.certificate))) return { status: 'REJECT', reason: 'closing chain_digest does not match the chain' };
+  } else if (!allowOpen) {
+    return { status: 'REJECT', reason: 'chain is not closed: truncation would be undetectable (pass allow_open to verify a prefix)' };
+  }
+  if (recomputed === null) return { status: 'UNVERIFIABLE', reason: 'no re-executed chain supplied' };
+  if (recomputed.length !== body.length) return { status: 'MALFORMED', reason: `re-executed chain has ${recomputed.length} chunks, claimed body has ${body.length}` };
+  for (let k = 0; k < body.length; k++) {
+    const v = verifyPair(body[k], recomputed[k]);
+    if (v.status !== 'ACCEPT') return { status: v.status, reason: `chunk ${k}: ${v.reason}` };
+  }
+  const state = closing !== null ? `closed chain of ${body.length} chunks, totality bound by closing receipt`
+                                 : `OPEN PREFIX of ${body.length} chunks: totality UNATTESTED`;
+  return { status: 'ACCEPT', reason: `every chunk re-executed to its certificate; ${state}` };
+}
+
+if (process.argv[2] === 'verify-chain') {
+  // node cr.mjs verify-chain <bundle.json> [--allow-open]
+  // A bundle is {kind:"cr-chain", receipts:[...]} (or a bare receipts array). The verifier's
+  // re-execution defaults to the bundle's own body — the chain analog of verify(r, r), i.e. the
+  // check a second machine runs when it recomputes the same body. Prints verdict + reason.
+  const path = process.argv[3];
+  const allowOpen = process.argv.includes('--allow-open');
+  if (!path) { console.error('usage: node cr.mjs verify-chain <bundle.json> [--allow-open]'); process.exit(2); }
+  let verdict;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'));
+    const receipts = Array.isArray(parsed) ? parsed : parsed.receipts;
+    if (!Array.isArray(receipts)) throw new Error('bundle has no receipts array');
+    let body = receipts.slice();
+    if (isClosing(body[body.length - 1])) body = body.slice(0, -1);
+    verdict = verifyChain(receipts, body, allowOpen);
+  } catch (e) {
+    verdict = { status: 'MALFORMED', reason: `could not read bundle: ${e.message}` };
+  }
+  console.log(`${verdict.status}  ${verdict.reason}`);
+  process.exit(verdict.status === 'ACCEPT' ? 0 : 1);
+} else if (process.argv[2] === 'verify') {
   // node cr.mjs verify <receipt.json>  — read a receipt and print its verdict + reason.
   const path = process.argv[3];
   if (!path) { console.error('usage: node cr.mjs verify <receipt.json>'); process.exit(2); }
