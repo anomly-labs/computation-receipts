@@ -10,9 +10,10 @@
 //
 //   node examples/js/cr.mjs | python3 python/conformance_runner.py /dev/stdin
 //
-// The refuse/* vectors are intentionally NOT emitted here: they assert a VERDICT a verifier
-// must return, which needs the §6/§6.1 wellformedness logic, not an emitter. This file is the
-// emitter half of a second implementation; verifying is left as the (well-specified) next step.
+// The refuse/* vectors are not EMITTED here: they assert a VERDICT a verifier must return.
+// That verifier half now lives in this same file (verifyReceipt / verifyChain, the `verify`
+// and `verify-chain` CLI modes below); the conformance runner exercises it against the five
+// refusal vectors, so this second implementation reproduces all 17 published vectors.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';

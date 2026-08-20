@@ -65,7 +65,7 @@ reductions) that reaches ACCEPT/REJECT.
 | path | what it is |
 |---|---|
 | `spec/CR-v0.1.md` | the specification — the authority; everything else serves it |
-| `spec/CR-v0.1-conformance-vectors.json` | 12 published vectors: canonicalisation, tensor digests, one receipt of each kind, and **three negative vectors** pinning required refusals |
+| `spec/CR-v0.1-conformance-vectors.json` | 17 published vectors: canonicalisation, tensor digests, one receipt of each kind (full, sampled, chunked + the chain closing manifest), and **five negative vectors** pinning required refusals |
 | `python/cr/receipt.py` | reference implementation: build/verify for full (v0.1), sampled (v0.1.1) and chained (v0.1.2) receipts |
 | `python/cr/protocol.py` | the verifier side of the commit → challenge → reveal protocol (§10) |
 | `python/cr/beacon.py` | public-randomness challenges (drand): pin the first round after the commitment; audit a transcript against the live beacon forever |
