@@ -81,11 +81,20 @@ What each layer buys, kept honest:
   A SCITT deployment carrying CR claims gets all three properties; a SCITT deployment
   carrying plain logs gets only the first two. That third property is the point of CR.
 
-No COSE example bytes ship in this repo yet — an honest worked example needs a real
-COSE library and a chosen SCITT profile, and fabricated hex would be worse than none.
-If you are wiring CR into a SCITT deployment and want conformance guidance (or want to
-contribute the worked example), open an issue — this is exactly the kind of external
-implementation the format wants: <https://github.com/anomly-labs/computation-receipts/issues>.
+Runnable, offline (numpy + stdlib + `cryptography` for Ed25519; SKIPs cleanly without it):
+
+```bash
+python3 examples/python/scitt_signed_statement_demo.py   # issuer builds + signs, verifier decodes + checks the binding, tamper refused
+```
+
+The demo emits a genuine tagged COSE_Sign1 (the CBOR is written out inline — ~50
+lines — so every wire byte is inspectable) and covers the ISSUER half only: there is
+no Transparency Service here, hence no registration and no Receipt (IETF sense). A
+real deployment signs with its own keys under its Transparency Service's COSE
+profile — the demo key is a fixed-seed demo artifact. If you are wiring CR into an
+actual SCITT deployment and want conformance guidance, open an issue — this is
+exactly the kind of external implementation the format wants:
+<https://github.com/anomly-labs/computation-receipts/issues>.
 
 ## 3. What not to do
 

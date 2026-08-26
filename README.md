@@ -74,7 +74,7 @@ reductions) that reaches ACCEPT/REJECT.
 | `docs/how-computation-receipts-work.pdf` | a 3-page plain-language explainer |
 | `IMPLEMENTERS.md` | the third-party implementer's guide: order of attack + every known pitfall |
 | `INTEGRATION.md` | the deployment guide: the minimal emit + verify diff to wrap CR around a real HPC / training / inference pipeline |
-| `INTEROP.md` | carrying a CR claim in the supply-chain stack: the in-toto v1 predicate mapping and the SCITT Signed-Statement mapping (+ `examples/python/in_toto_statement_demo.py`, runnable offline) |
+| `INTEROP.md` | carrying a CR claim in the supply-chain stack: the in-toto v1 predicate mapping and the SCITT Signed-Statement mapping, each with a runnable offline demo (`examples/python/in_toto_statement_demo.py`, `scitt_signed_statement_demo.py`) |
 
 ## What CR deliberately does not do
 
